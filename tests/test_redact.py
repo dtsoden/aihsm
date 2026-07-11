@@ -55,6 +55,44 @@ def test_needle_that_is_substring_in_middle():
         assert out == b"****"
 
 
+def test_overlapping_needles_equal_length():
+    # "AAAmid" and "midBBB" overlap on "mid" without either containing the
+    # other. The union of their spans covers the whole buffer.
+    for needles in ([b"AAAmid", b"midBBB"], [b"midBBB", b"AAAmid"]):
+        r = StreamRedactor(needles)
+        out = _run(r, [b"AAAmidBBB"])
+        assert out == b"****"
+        for frag in (b"AAA", b"BBB", b"mid", b"AAAmid", b"midBBB"):
+            assert frag not in out
+
+
+def test_overlapping_needles_unequal_length():
+    for needles in ([b"AAAmi", b"midBBB"], [b"midBBB", b"AAAmi"]):
+        r = StreamRedactor(needles)
+        out = _run(r, [b"AAAmidBBB"])
+        assert out == b"****"
+        assert b"AAA" not in out
+        assert b"BBB" not in out
+
+
+def test_overlap_split_across_feeds():
+    # The overlap region straddles the read boundary; it must still collapse
+    # to a single mask with no leftover fragment.
+    r = StreamRedactor([b"AAAmid", b"midBBB"])
+    out = _run(r, [b"AAAmid", b"BBB"])
+    assert out == b"****"
+    for frag in (b"AAA", b"BBB", b"mid"):
+        assert frag not in out
+
+
+def test_disjoint_occurrences_each_masked():
+    r = StreamRedactor([b"PREFIXaaa", b"PREFIXbbb"])
+    out = _run(r, [b"PREFIXaaa PREFIXbbb"])
+    assert out == b"**** ****"
+    for frag in (b"PREFIX", b"aaa", b"bbb"):
+        assert frag not in out
+
+
 def test_empty_needle_is_ignored_and_does_not_blow_up():
     r = StreamRedactor([b"", b"SECRET"])
     out = _run(r, [b"abcSECRETdef"])
