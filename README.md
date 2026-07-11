@@ -27,8 +27,10 @@ Keychain, or the Linux Secret Service).
 
 * Stored values are never printed by any command in this tool. There is no `aihsm show`
   or `aihsm get`. If you need to see a value, open your OS credential manager yourself.
-  Each secret is filed there under the name `<yourname>@aihsm`, the same
-  on Windows, macOS, and Linux, so it is easy to find.
+  Each secret is filed there under the name `<yourname>@aihsm`, the same on Windows,
+  macOS, and Linux. On macOS, open Keychain Access and look under the **Passwords**
+  category (or type `aihsm` in the search box); the entry is easy to miss otherwise.
+  On Windows it is under Credential Manager, Windows Credentials, Generic Credentials.
 
 * When a command needs a secret at runtime, `aihsm run` injects it and masks the value out
   of that command's output, so the key does not surface in the chat even if the command
