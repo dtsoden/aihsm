@@ -20,6 +20,9 @@ Keychain, or the Linux Secret Service).
   being pasted into chat.
 - Stored values are never printed by any command in this tool. There is no `vault show`
   or `vault get`. If you need to see a value, open your OS credential manager yourself.
+- When a command needs a secret at runtime, `vault run` injects it and masks the value out
+  of that command's output, so the key does not surface in the chat even if the command
+  tries to print it.
 - Anything that has already been typed into a chat message is compromised, whether the
   hook caught it or not. Rotate it. A key that a human or a model has seen is a key you
   should treat as burned, and no tool can undo that after the fact.
@@ -38,8 +41,16 @@ bash install.sh
 .\install.ps1
 ```
 
-The installer registers the `UserPromptSubmit` hook in your Claude Code settings, installs
-the `vault` CLI, and copies the accompanying skill so Claude knows the rules around it.
+The installer checks that Python 3 is present, installs the package and the `vault` CLI,
+registers the `UserPromptSubmit` hook in your Claude Code settings (backing up the existing
+settings file first, never overwriting your other hooks), and copies the accompanying skill
+so Claude knows the rules around it. If Python is missing or the install fails, it stops and
+tells you what to fix rather than half-installing.
+
+Once it finishes, the hook is active in new Claude Code sessions (restart Claude Code if it
+is already open). To confirm it works, paste a fake key like `ghp_` followed by a run of
+random letters and numbers into a message: it should be blocked before Claude sees it. From
+then on, store real secrets with `vault put <name>` and refer to them by name.
 
 ## Usage
 
@@ -56,10 +67,13 @@ Run a command with a secret injected into its environment, without ever printing
 vault run --set GITHUB_TOKEN=github-token -- gh api /user
 ```
 
-`vault run` puts the secret into the child command's environment; it does not stop that
-command from printing the secret itself, say, in a debug log or an error message. Keeping
-the child command quiet about the value it was given is a rule for the model to follow, set
-out in the accompanying skill, not something the code can enforce.
+`vault run` puts the secret into the child command's environment and redacts it from
+everything that command prints. If the command echoes the value in a debug line, an error,
+or a full `printenv` dump, it comes back as `****`, so the raw key does not land in the
+transcript Claude reads. This holds even when several stored secrets overlap each other or a
+value is split across the output stream. The one thing it cannot catch is a value the
+command transforms before printing it (base64-encoding it, for example); the accompanying
+skill still tells the model never to echo a secret, as a second layer.
 
 If `vault` is not found after install (a PATH issue), run it as a module instead:
 
@@ -92,6 +106,15 @@ just happens to look like a secret. If that happens, re-send the exact same mess
 start it with `!secret-ok`. That one message goes through, and the tool remembers the
 flagged string (as a salted hash, not the raw value) so it will not nag you about that
 same string again.
+
+## The log
+
+The tool keeps a small log at `~/.claude/secret-harness/logs/` so you can see what happened
+when something goes wrong: a blocked key (by type, never the value), a stored or used entry
+(by name), an error. It never records a secret value, the prompt text, or a matched string.
+The log cleans up after itself: it rolls over at about 1 MB and keeps four old files, so it
+stays around 5 MB at most and can never grow into the hundreds of megabytes. To turn it off,
+set the environment variable `SECRET_HARNESS_NO_LOG` to any value.
 
 ## Uninstall
 
