@@ -69,12 +69,22 @@ def test_index_file_holds_names_not_values(fake, tmp_path):
     assert "verysecret" not in index_text
 
 
+def test_target_is_consistent_name_at_service(fake, tmp_path):
+    # Every entry is stored under "<name>@claude-secret-harness", the same on
+    # any OS, never a bare service name.
+    assert store._target("github-token") == "github-token@claude-secret-harness"
+    store.store_secret("github-token", "v", tmp_path)
+    assert ("github-token@claude-secret-harness", "github-token") in fake.data
+    # no bare "claude-secret-harness" target is ever written.
+    assert all(key[0] != store.SERVICE for key in fake.data)
+
+
 def test_list_prunes_names_deleted_outside_the_tool(fake, tmp_path):
     # User stores two, then deletes one directly in the OS credential manager
     # (bypassing store.delete_secret, so the name index is now stale).
     store.store_secret("keep", "v1", tmp_path)
     store.store_secret("gone", "v2", tmp_path)
-    fake.data.pop((store.SERVICE, "gone"), None)  # external deletion
+    fake.data.pop((store._target("gone"), "gone"), None)  # external deletion
     # list must reflect reality, not the stale index.
     assert store.list_names(tmp_path) == ["keep"]
     # and it must have healed the index on disk.
@@ -103,6 +113,6 @@ def test_delete_twice_is_idempotent(strict_fake, tmp_path):
 def test_delete_stranded_name_clears_index(strict_fake, tmp_path):
     # Credential removed out of band: name is in the index but not the vault.
     store.store_secret("stranded", "v", tmp_path)
-    strict_fake.data.pop((store.SERVICE, "stranded"), None)
+    strict_fake.data.pop((store._target("stranded"), "stranded"), None)
     store.delete_secret("stranded", tmp_path)
     assert store.list_names(tmp_path) == []

@@ -6,6 +6,19 @@ from keyring.errors import PasswordDeleteError
 SERVICE = "claude-secret-harness"
 
 
+def _target(name):
+    """The keyring service string for one secret.
+
+    We give every secret its own unique target, "<name>@claude-secret-harness",
+    instead of sharing a single service name. This keeps the naming identical
+    on every OS and avoids the Windows keyring quirk where the most recently
+    stored secret lands under a bare "claude-secret-harness" target while the
+    rest get a compound name. With one target per secret, every entry reads as
+    "<name>@claude-secret-harness" in the OS credential manager.
+    """
+    return name + "@" + SERVICE
+
+
 def _index_path(config_dir):
     return config_dir / "names.json"
 
@@ -27,19 +40,19 @@ def _save_names(config_dir, names):
 
 
 def store_secret(name, value, config_dir):
-    keyring.set_password(SERVICE, name, value)
+    keyring.set_password(_target(name), name, value)
     names = _load_names(config_dir)
     names.add(name)
     _save_names(config_dir, names)
 
 
 def get_secret(name, config_dir):
-    return keyring.get_password(SERVICE, name)
+    return keyring.get_password(_target(name), name)
 
 
 def delete_secret(name, config_dir):
     try:
-        keyring.delete_password(SERVICE, name)
+        keyring.delete_password(_target(name), name)
     except PasswordDeleteError:
         # Real backends (e.g. Windows WinVaultKeyring) raise when the entry is
         # already absent. Treat "already gone" as success and always fall
@@ -65,7 +78,7 @@ def list_names(config_dir):
     stale = False
     for name in names:
         try:
-            present = keyring.get_password(SERVICE, name) is not None
+            present = keyring.get_password(_target(name), name) is not None
         except Exception:
             present = True
         if present:
