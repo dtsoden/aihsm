@@ -28,7 +28,7 @@ def test_rotation_caps_files(tmp_path):
 
 
 def test_disabled_by_env(tmp_path, monkeypatch):
-    monkeypatch.setenv("SECRET_HARNESS_NO_LOG", "1")
+    monkeypatch.setenv("AIHSM_NO_LOG", "1")
     target = tmp_path / "disabled.log"
     log.get_logger(target, force=True)
 

@@ -150,7 +150,7 @@ when something goes wrong: a blocked key (by type, never the value), a stored or
 (by name), an error. It never records a secret value, the prompt text, or a matched string.
 The log cleans up after itself: it rolls over at about 1 MB and keeps four old files, so it
 stays around 5 MB at most and can never grow into the hundreds of megabytes. To turn it off,
-set the environment variable `SECRET_HARNESS_NO_LOG` to any value.
+set the environment variable `AIHSM_NO_LOG` to any value.
 
 ## Uninstall
 
