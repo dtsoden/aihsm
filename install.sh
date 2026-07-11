@@ -17,7 +17,10 @@ SKILL_DIR="$HOME/.claude/skills/secret-harness"
 mkdir -p "$SKILL_DIR"
 cp "skills/secret-harness/SKILL.md" "$SKILL_DIR/SKILL.md"
 
-python3 -m secret_harness.installer install-hook
+if ! python3 -m secret_harness.installer install-hook; then
+  echo "Hook install failed. Aborting." >&2
+  exit 1
+fi
 
 if ! command -v vault >/dev/null 2>&1; then
   SCRIPTS="$(python3 -c 'import sysconfig; print(sysconfig.get_path("scripts","posix_user"))' 2>/dev/null || true)"
@@ -26,7 +29,10 @@ if ! command -v vault >/dev/null 2>&1; then
       *":${SCRIPTS}:"*) ;;
       *)
         added=0
-        for RC in "$HOME/.profile" "$HOME/.bashrc" "$HOME/.zshrc"; do
+        # Cover login and interactive shells on both Linux and macOS:
+        # bash logins read .bash_profile, zsh logins read .zprofile.
+        for RC in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" \
+                  "$HOME/.zprofile" "$HOME/.zshrc"; do
           if [ -f "$RC" ] && ! grep -qF "$SCRIPTS" "$RC"; then
             printf '\n# Added by Claude-Secret-Harness installer\nexport PATH="%s:$PATH"\n' "$SCRIPTS" >> "$RC"
             added=1

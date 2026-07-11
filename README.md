@@ -45,9 +45,15 @@ bash install.sh
 
 The installer checks that Python 3 is present, installs the package and the `vault` CLI,
 registers the `UserPromptSubmit` hook in your Claude Code settings (backing up the existing
-settings file first, never overwriting your other hooks), and copies the accompanying skill
-so Claude knows the rules around it. If Python is missing or the install fails, it stops and
-tells you what to fix rather than half-installing.
+settings file first, never overwriting your other hooks), copies the accompanying skill so
+Claude knows the rules around it, and adds the `vault` command to your PATH. If Python is
+missing or the install fails, it stops and tells you what to fix rather than half-installing.
+The same steps run on Windows, macOS, and Linux.
+
+On Linux, the OS vault is the Secret Service, so you need a keyring backend running
+(GNOME Keyring or KWallet). Most desktop Linux installs already have one. On a headless or
+minimal box without it, storing a secret will fail with a clear message telling you what to
+install.
 
 Once it finishes, the hook is active in new Claude Code sessions (restart Claude Code if it
 is already open). To confirm it works, paste a fake key like `ghp_` followed by a run of
