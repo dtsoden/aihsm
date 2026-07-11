@@ -120,12 +120,27 @@ def cmd_rm(args):
     return 0
 
 
+_EPILOG = """\
+Examples:
+  vault put github-token                 store a secret (you are prompted, input hidden)
+  vault run --set GH=github-token -- gh api /user
+                                         run a command with the secret in its environment
+  vault list                             list stored names (never values)
+  vault rm github-token                  delete a stored secret
+
+Stored values are never printed. To view a value, open your OS credential
+manager (Windows Credential Manager, macOS Keychain, or Linux Secret Service).
+"""
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="vault",
-        description="Store and use secrets in the OS credential vault.",
+        description="Store and use secrets in the operating system's credential vault.",
+        epilog=_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    sub = parser.add_subparsers(dest="cmd", required=True)
+    sub = parser.add_subparsers(dest="cmd", metavar="{put,run,list,rm}")
 
     p_put = sub.add_parser("put", help="Store a secret via a hidden prompt.")
     p_put.add_argument("name")
@@ -147,10 +162,15 @@ def build_parser():
 
 
 def main(argv=None):
+    parser = build_parser()
     try:
-        args = build_parser().parse_args(argv)
+        args = parser.parse_args(argv)
     except SystemExit as exc:
         return int(exc.code) if exc.code is not None else 0
+    if not hasattr(args, "func"):
+        # No subcommand given: show the full help instead of a terse error.
+        parser.print_help()
+        return 0
     return args.func(args)
 
 
