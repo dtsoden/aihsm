@@ -95,11 +95,9 @@ value is split across the output stream. The one thing it cannot catch is a valu
 command transforms before printing it (base64-encoding it, for example); the accompanying
 skill still tells the model never to echo a secret, as a second layer.
 
-If `aihsm` is not found after install (a PATH issue), run it as a module instead:
-
-```bash
-python -m aihsm.cli list
-```
+If `aihsm` is not found right after install, open a new terminal window: the PATH change
+only takes effect in new shells. The installer prints the full path to the command at the
+end if you ever need to run it directly.
 
 List what is stored, by name only. This checks your OS vault directly, so if you remove an
 entry in your OS credential manager, `aihsm list` stops showing it:
