@@ -51,4 +51,27 @@ def delete_secret(name, config_dir):
 
 
 def list_names(config_dir):
-    return sorted(_load_names(config_dir))
+    """Return the stored names, reconciled against the real OS vault.
+
+    The name index is only a hint: a user can delete an entry directly in
+    their OS credential manager, which leaves the index stale. So we verify
+    each name against the vault, drop any that no longer resolve, and heal
+    the index. A name we cannot verify (an unexpected backend error) is kept
+    rather than hidden, so a transient failure never makes a real secret
+    vanish from the list.
+    """
+    names = _load_names(config_dir)
+    live = set()
+    stale = False
+    for name in names:
+        try:
+            present = keyring.get_password(SERVICE, name) is not None
+        except Exception:
+            present = True
+        if present:
+            live.add(name)
+        else:
+            stale = True
+    if stale:
+        _save_names(config_dir, live)
+    return sorted(live)
