@@ -20,7 +20,27 @@ cp "skills/secret-harness/SKILL.md" "$SKILL_DIR/SKILL.md"
 python3 -m secret_harness.installer install-hook
 
 if ! command -v vault >/dev/null 2>&1; then
-  echo "Note: 'vault' is not on your PATH. Add your Python user scripts directory to PATH, or run it as:  python3 -m secret_harness.vault"
+  SCRIPTS="$(python3 -c 'import sysconfig; print(sysconfig.get_path("scripts","posix_user"))' 2>/dev/null || true)"
+  if [ -n "$SCRIPTS" ] && [ -d "$SCRIPTS" ]; then
+    case ":${PATH}:" in
+      *":${SCRIPTS}:"*) ;;
+      *)
+        added=0
+        for RC in "$HOME/.profile" "$HOME/.bashrc" "$HOME/.zshrc"; do
+          if [ -f "$RC" ] && ! grep -qF "$SCRIPTS" "$RC"; then
+            printf '\n# Added by Claude-Secret-Harness installer\nexport PATH="%s:$PATH"\n' "$SCRIPTS" >> "$RC"
+            added=1
+          fi
+        done
+        if [ "$added" -eq 1 ]; then
+          echo "Added $SCRIPTS to your shell profile so 'vault' works."
+          echo "Open a new terminal, or run 'source ~/.profile', for 'vault' to be available."
+        else
+          echo "Note: 'vault' is not on PATH and no shell profile was found to update. Run it as:  python3 -m secret_harness.vault"
+        fi
+        ;;
+    esac
+  fi
 fi
 
 echo "Done. Store a secret with:  vault put my-key"

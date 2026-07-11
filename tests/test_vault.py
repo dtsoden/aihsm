@@ -150,10 +150,24 @@ def test_run_returns_child_exit_code(wired, monkeypatch, capsys):
     assert rc == 3
 
 
-def test_missing_subcommand_returns_int_not_raises(wired):
+def test_missing_subcommand_prints_help_returns_zero(wired, capsys):
     try:
         rc = vault.main([])
     except SystemExit:
         pytest.fail("main([]) raised SystemExit instead of returning an int")
+    out = capsys.readouterr().out
     assert isinstance(rc, int)
-    assert rc != 0
+    assert rc == 0
+    # Bare `vault` shows friendly help (usage + examples), not a terse error.
+    assert "usage: vault" in out
+    assert "Examples:" in out
+
+
+def test_help_flag_returns_zero(wired, capsys):
+    try:
+        rc = vault.main(["-h"])
+    except SystemExit:
+        pytest.fail("main(['-h']) raised SystemExit instead of returning an int")
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "usage: vault" in out
