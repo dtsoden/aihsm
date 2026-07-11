@@ -1,6 +1,7 @@
 import json
 
 import keyring
+from keyring.errors import PasswordDeleteError
 
 SERVICE = "claude-secret-harness"
 
@@ -14,7 +15,7 @@ def _load_names(config_dir):
     if path.exists():
         try:
             return set(json.loads(path.read_text(encoding="utf-8")))
-        except (json.JSONDecodeError, ValueError):
+        except (json.JSONDecodeError, ValueError, TypeError):
             return set()
     return set()
 
@@ -37,7 +38,13 @@ def get_secret(name, config_dir):
 
 
 def delete_secret(name, config_dir):
-    keyring.delete_password(SERVICE, name)
+    try:
+        keyring.delete_password(SERVICE, name)
+    except PasswordDeleteError:
+        # Real backends (e.g. Windows WinVaultKeyring) raise when the entry is
+        # already absent. Treat "already gone" as success and always fall
+        # through so the name index stays consistent.
+        pass
     names = _load_names(config_dir)
     names.discard(name)
     _save_names(config_dir, names)
