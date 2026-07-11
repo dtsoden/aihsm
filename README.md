@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" alt="aihsm logo" width="180">
+</p>
+
 # aihsm
 
 AI Harness Secret Manager: keep API keys out of Claude Code and in your OS credential vault.
