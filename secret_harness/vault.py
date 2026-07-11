@@ -6,7 +6,7 @@ import sys
 import threading
 from pathlib import Path
 
-from secret_harness import store
+from secret_harness import log, store
 from secret_harness.redact import StreamRedactor
 
 _CHUNK_SIZE = 4096
@@ -22,6 +22,7 @@ def cmd_put(args):
         sys.stderr.write("Aborted: empty value.\n")
         return 1
     store.store_secret(args.name, value, _config_dir())
+    log.info("vault put: " + args.name)
     sys.stdout.write("Stored '{0}' in the OS vault.\n".format(args.name))
     return 0
 
@@ -49,23 +50,30 @@ def _pump(src, redactor, dest):
 def cmd_run(args):
     env = os.environ.copy()
     secrets = []
+    names_used = []
     for pair in args.set:
         var, sep, name = pair.partition("=")
         if not var or not sep or not name:
+            log.error("vault run error: bad --set format")
             sys.stderr.write("Bad --set '{0}', expected VAR=NAME.\n".format(pair))
             return 1
         secret = store.get_secret(name, _config_dir())
         if secret is None:
+            log.error("vault run error: unknown name " + name)
             sys.stderr.write("No vault entry named '{0}'.\n".format(name))
             return 1
         env[var] = secret
         secrets.append(secret)
+        names_used.append(name)
     command = args.command
     if command and command[0] == "--":
         command = command[1:]
     if not command:
+        log.error("vault run error: no command given")
         sys.stderr.write("No command given. Usage: vault run --set VAR=NAME -- <command>\n")
         return 1
+
+    log.info("vault run: injected " + ", ".join(sorted(set(names_used))))
 
     needles = [s.encode("utf-8", "surrogateescape") for s in secrets]
 
@@ -77,6 +85,7 @@ def cmd_run(args):
             stderr=subprocess.PIPE,
         )
     except OSError as err:
+        log.error("vault run error: cannot run command")
         sys.stderr.write("Cannot run command: {0}\n".format(err))
         return 1
 
@@ -93,7 +102,9 @@ def cmd_run(args):
     stdout_thread.join()
     stderr_thread.join()
 
-    return proc.wait()
+    rc = proc.wait()
+    log.info("vault run exit: " + str(rc))
+    return rc
 
 
 def cmd_list(args):
@@ -104,6 +115,7 @@ def cmd_list(args):
 
 def cmd_rm(args):
     store.delete_secret(args.name, _config_dir())
+    log.info("vault rm: " + args.name)
     sys.stdout.write("Removed '{0}'.\n".format(args.name))
     return 0
 
