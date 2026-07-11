@@ -3,9 +3,13 @@ import getpass
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 from secret_harness import store
+from secret_harness.redact import StreamRedactor
+
+_CHUNK_SIZE = 4096
 
 
 def _config_dir():
@@ -22,8 +26,29 @@ def cmd_put(args):
     return 0
 
 
+def _pump(src, redactor, dest):
+    """Read fixed-size chunks from src, redact secrets, and write to dest.
+
+    dest is expected to be a binary stream (e.g. sys.stdout.buffer). Flushes
+    after every write so output stays live, and flushes the redactor's held
+    tail once the source hits EOF.
+    """
+    try:
+        while True:
+            chunk = src.read(_CHUNK_SIZE)
+            if not chunk:
+                break
+            dest.write(redactor.feed(chunk))
+            dest.flush()
+        dest.write(redactor.flush())
+        dest.flush()
+    finally:
+        src.close()
+
+
 def cmd_run(args):
     env = os.environ.copy()
+    secrets = []
     for pair in args.set:
         var, sep, name = pair.partition("=")
         if not var or not sep or not name:
@@ -34,13 +59,41 @@ def cmd_run(args):
             sys.stderr.write("No vault entry named '{0}'.\n".format(name))
             return 1
         env[var] = secret
+        secrets.append(secret)
     command = args.command
     if command and command[0] == "--":
         command = command[1:]
     if not command:
         sys.stderr.write("No command given. Usage: vault run --set VAR=NAME -- <command>\n")
         return 1
-    return subprocess.run(command, env=env).returncode
+
+    needles = [s.encode("utf-8", "surrogateescape") for s in secrets]
+
+    try:
+        proc = subprocess.Popen(
+            command,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError as err:
+        sys.stderr.write("Cannot run command: {0}\n".format(err))
+        return 1
+
+    stdout_thread = threading.Thread(
+        target=_pump,
+        args=(proc.stdout, StreamRedactor(needles), sys.stdout.buffer),
+    )
+    stderr_thread = threading.Thread(
+        target=_pump,
+        args=(proc.stderr, StreamRedactor(needles), sys.stderr.buffer),
+    )
+    stdout_thread.start()
+    stderr_thread.start()
+    stdout_thread.join()
+    stderr_thread.join()
+
+    return proc.wait()
 
 
 def cmd_list(args):
