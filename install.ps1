@@ -21,7 +21,20 @@ python -m secret_harness.installer install-hook
 if ($LASTEXITCODE -ne 0) { Write-Error "Hook install failed. Aborting."; exit 1 }
 
 if (-not (Get-Command vault -ErrorAction SilentlyContinue)) {
-  Write-Host "Note: 'vault' is not on your PATH. Add your Python user scripts directory to PATH, or run it as:  python -m secret_harness.vault"
+  $scripts = (& python -c "import sysconfig; print(sysconfig.get_path('scripts','nt_user'))").Trim()
+  if ($scripts -and (Test-Path $scripts)) {
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    if ($null -eq $userPath) { $userPath = '' }
+    if (($userPath.Split(';') | Where-Object { $_ -ne '' }) -notcontains $scripts) {
+      $newPath = if ($userPath -eq '') { $scripts } else { $userPath.TrimEnd(';') + ';' + $scripts }
+      [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
+      Write-Host "Added the Python user scripts directory to your PATH so 'vault' works."
+    }
+    if (($env:Path).Split(';') -notcontains $scripts) { $env:Path += ';' + $scripts }
+    Write-Host "Open a NEW terminal for 'vault' to be available (this window will not see it yet)."
+  } else {
+    Write-Host "Note: could not locate the scripts directory. Run vault as:  python -m secret_harness.vault"
+  }
 }
 
 Write-Host "Done. Store a secret with:  vault put my-key"
