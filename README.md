@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" alt="aihsm logo" width="180">
+  <img src="Logo.png" alt="aihsm logo" width="180">
 </p>
 
 # aihsm
