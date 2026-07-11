@@ -2,10 +2,10 @@ import sys
 
 import pytest
 
-from secret_harness import detect, log, vault
+from aihsm import detect, log, cli
 
 # Global logger reset between tests is handled by the autouse fixture in
-# tests/conftest.py (isolate_secret_harness_log), so each test here only
+# tests/conftest.py (isolate_aihsm_log), so each test here only
 # needs to call log.get_logger(..., force=True) with its own path.
 
 
@@ -28,7 +28,7 @@ def test_rotation_caps_files(tmp_path):
 
 
 def test_disabled_by_env(tmp_path, monkeypatch):
-    monkeypatch.setenv("SECRET_HARNESS_NO_LOG", "1")
+    monkeypatch.setenv("AIHSM_NO_LOG", "1")
     target = tmp_path / "disabled.log"
     log.get_logger(target, force=True)
 
@@ -43,7 +43,7 @@ def test_best_effort_no_raise(tmp_path):
     # NullHandler. log.info must still never raise.
     blocker = tmp_path / "blocker"
     blocker.write_text("not a directory", encoding="utf-8")
-    impossible_path = blocker / "sub" / "secret-harness.log"
+    impossible_path = blocker / "sub" / "aihsm.log"
 
     log.get_logger(impossible_path, force=True)
 
@@ -83,21 +83,21 @@ class FakeKeyring:
         self.data.pop((service, name), None)
 
 
-def test_vault_run_logs_names_not_values(tmp_path, monkeypatch):
-    from secret_harness import store
+def test_cli_run_logs_names_not_values(tmp_path, monkeypatch):
+    from aihsm import store
 
-    log_file = tmp_path / "vault.log"
+    log_file = tmp_path / "aihsm.log"
     log.get_logger(log_file, force=True)
 
     fk = FakeKeyring()
     monkeypatch.setattr(store, "keyring", fk)
-    monkeypatch.setattr(vault, "_config_dir", lambda: tmp_path)
-    monkeypatch.setattr(vault.getpass, "getpass", lambda prompt="": "SECRETVALUE12345")
+    monkeypatch.setattr(cli, "_config_dir", lambda: tmp_path)
+    monkeypatch.setattr(cli.getpass, "getpass", lambda prompt="": "SECRETVALUE12345")
 
-    vault.main(["put", "name"])
+    cli.main(["put", "name"])
 
     script = "import sys; sys.exit(0)"
-    rc = vault.main(["run", "--set", "TOK=name", "--", sys.executable, "-c", script])
+    rc = cli.main(["run", "--set", "TOK=name", "--", sys.executable, "-c", script])
     assert rc == 0
 
     contents = log_file.read_text(encoding="utf-8")

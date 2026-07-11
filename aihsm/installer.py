@@ -4,11 +4,11 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-from secret_harness import log
+from aihsm import log
 
 
 def hook_command() -> str:
-    return '"{0}" -m secret_harness.detect'.format(sys.executable)
+    return '"{0}" -m aihsm.detect'.format(sys.executable)
 
 
 def _load(settings_path: Path) -> dict:
@@ -76,14 +76,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
         merge_hook(_settings_path(), hook_command())
         log.info("hook installed")
-        sys.stdout.write("Secret-Harness hook installed.\n")
+        sys.stdout.write("aihsm hook installed.\n")
         return 0
     if action == "uninstall-hook":
         remove_hook(_settings_path(), hook_command())
         log.info("hook removed")
-        sys.stdout.write("Secret-Harness hook removed.\n")
+        sys.stdout.write("aihsm hook removed.\n")
         return 0
-    sys.stderr.write("Usage: python -m secret_harness.installer [install-hook|uninstall-hook]\n")
+    sys.stderr.write("Usage: python -m aihsm.installer [install-hook|uninstall-hook]\n")
     return 2
 
 

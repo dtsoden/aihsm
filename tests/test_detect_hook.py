@@ -9,7 +9,7 @@ def _run_hook(stdin_text, tmp_path):
     env["HOME"] = str(tmp_path)
     env["USERPROFILE"] = str(tmp_path)
     return subprocess.run(
-        [sys.executable, "-m", "secret_harness.detect"],
+        [sys.executable, "-m", "aihsm.detect"],
         input=stdin_text,
         capture_output=True,
         text=True,
@@ -35,4 +35,4 @@ def test_secret_prompt_is_blocked_and_not_echoed(tmp_path):
 def test_malformed_stdin_fails_closed(tmp_path):
     result = _run_hook("not-json", tmp_path)
     assert result.returncode == 2
-    assert "Secret-Harness guard could not run" in result.stderr
+    assert "aihsm guard could not run" in result.stderr

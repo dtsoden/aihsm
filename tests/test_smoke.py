@@ -1,5 +1,5 @@
-import secret_harness
+import aihsm
 
 
 def test_package_imports():
-    assert secret_harness.__version__
+    assert aihsm.__version__

@@ -3,18 +3,18 @@ import json
 import keyring
 from keyring.errors import PasswordDeleteError
 
-SERVICE = "claude-secret-harness"
+SERVICE = "aihsm"
 
 
 def _target(name):
     """The keyring service string for one secret.
 
-    We give every secret its own unique target, "<name>@claude-secret-harness",
+    We give every secret its own unique target, "<name>@aihsm",
     instead of sharing a single service name. This keeps the naming identical
     on every OS and avoids the Windows keyring quirk where the most recently
-    stored secret lands under a bare "claude-secret-harness" target while the
+    stored secret lands under a bare "aihsm" target while the
     rest get a compound name. With one target per secret, every entry reads as
-    "<name>@claude-secret-harness" in the OS credential manager.
+    "<name>@aihsm" in the OS credential manager.
     """
     return name + "@" + SERVICE
 

@@ -1,5 +1,5 @@
-from secret_harness import detect
-from secret_harness.messages import secret_detected_message, guard_failure_message
+from aihsm import detect
+from aihsm.messages import secret_detected_message, guard_failure_message
 
 
 def test_clean_prompt_allows(tmp_path):
@@ -14,7 +14,7 @@ def test_secret_prompt_blocks(tmp_path):
     )
     assert code == 2
     assert "Secret detected" in msg
-    assert "vault put" in msg
+    assert "aihsm put" in msg
 
 
 def test_bypass_allows_and_remembers(tmp_path):

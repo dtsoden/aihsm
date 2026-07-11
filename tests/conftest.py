@@ -1,13 +1,13 @@
 import pytest
 
-from secret_harness import log
+from aihsm import log
 
 
 @pytest.fixture(autouse=True)
-def isolate_secret_harness_log(tmp_path, monkeypatch):
+def isolate_aihsm_log(tmp_path, monkeypatch):
     """Keep every test's logging inside tmp_path.
 
-    Without this, any test that calls detect.run(...) or vault.main(...)
+    Without this, any test that calls detect.run(...) or cli.main(...)
     without first configuring log.get_logger() explicitly would fall back to
     log.default_log_path(), which points at the real user's home directory.
     Patching default_log_path here means that fallback always lands in a
@@ -16,7 +16,7 @@ def isolate_secret_harness_log(tmp_path, monkeypatch):
     specific path still get one, since they pass log_path explicitly to
     get_logger(force=True), bypassing default_log_path entirely.
     """
-    monkeypatch.setattr(log, "default_log_path", lambda: tmp_path / "auto-secret-harness.log")
+    monkeypatch.setattr(log, "default_log_path", lambda: tmp_path / "auto-aihsm.log")
     log._clear_handlers(log.logging.getLogger(log._LOGGER_NAME))
     log._configured = False
     yield
