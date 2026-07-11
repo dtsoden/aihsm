@@ -35,7 +35,7 @@ def shannon_entropy(s: str) -> float:
     return -sum((c / n) * math.log2(c / n) for c in counts.values())
 
 
-def find_secrets(text, entropy_threshold=3.5, min_entropy_len=20):
+def find_secrets(text, entropy_threshold=3.5, min_entropy_len=20) -> List[Finding]:
     findings = []
     seen = set()
     for rule, pattern in _KNOWN:
@@ -47,6 +47,11 @@ def find_secrets(text, entropy_threshold=3.5, min_entropy_len=20):
     for match in _TOKEN_RE.finditer(text):
         value = match.group(0)
         if value in seen:
+            continue
+        # Known-pattern findings are authoritative. Skip any high-entropy
+        # candidate that contains an already-found known secret, so a secret
+        # glued to surrounding context (e.g. KEY=secret) is not double-counted.
+        if any(known in value for known in seen):
             continue
         if len(value) >= min_entropy_len and shannon_entropy(value) >= entropy_threshold:
             seen.add(value)

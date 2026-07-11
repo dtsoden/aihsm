@@ -39,3 +39,9 @@ def test_no_duplicate_findings():
     text = "ghp_abcdefghijklmnopqrstuvwxyz0123456789 ghp_abcdefghijklmnopqrstuvwxyz0123456789"
     values = [f.value for f in find_secrets(text)]
     assert len(values) == len(set(values))
+
+
+def test_known_secret_glued_to_context_not_double_counted():
+    found = find_secrets("GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz0123456789")
+    assert len(found) == 1
+    assert found[0].rule == "github-token"
