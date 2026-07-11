@@ -20,6 +20,8 @@ Keychain, or the Linux Secret Service).
   being pasted into chat.
 - Stored values are never printed by any command in this tool. There is no `vault show`
   or `vault get`. If you need to see a value, open your OS credential manager yourself.
+  Each secret is filed there under the name `<yourname>@claude-secret-harness`, the same
+  on Windows, macOS, and Linux, so it is easy to find.
 - When a command needs a secret at runtime, `vault run` injects it and masks the value out
   of that command's output, so the key does not surface in the chat even if the command
   tries to print it.
@@ -84,7 +86,8 @@ If `vault` is not found after install (a PATH issue), run it as a module instead
 python -m secret_harness.vault list
 ```
 
-List what is stored, by name only:
+List what is stored, by name only. This checks your OS vault directly, so if you remove an
+entry in your OS credential manager, `vault list` stops showing it:
 
 ```bash
 vault list
@@ -95,6 +98,28 @@ Remove an entry:
 ```bash
 vault rm github-token
 ```
+
+## Using a stored secret in a Claude Code prompt
+
+This is the part that changes your habit. You never paste the key into the chat. You refer
+to it by the name you gave it, and let Claude pull it from the vault for you.
+
+Say you stored a token with `vault put github-token`. In a prompt, you just name it:
+
+> Use my github-token from the vault to list my GitHub repositories.
+
+Claude runs the command through `vault run`, which reads the secret from the OS vault,
+puts it into that command's environment, and masks it out of the output:
+
+```bash
+vault run --set GITHUB_TOKEN=github-token -- gh api /user/repos
+```
+
+`GITHUB_TOKEN` is the environment variable the command expects; `github-token` is the name
+you stored it under. The value never appears in your message, in Claude's reply, or in the
+command's output. The accompanying skill teaches Claude these rules, so it reaches for
+`vault run` and refers to secrets by name on its own. If you forget and paste the raw key,
+the hook blocks the message before it reaches Claude.
 
 ## How detection works
 
