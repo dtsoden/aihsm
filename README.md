@@ -2,7 +2,7 @@
   <img src="Logo.png" alt="aihsm logo" width="180">
 </p>
 
-# aihsm
+# AIHSM - (AI Harness Manager)
 
 AI Harness Secret Manager: keep API keys out of Claude Code and in your OS credential vault.
 
@@ -22,16 +22,19 @@ Keychain, or the Linux Secret Service).
 
 ## The core policy
 
-- Secrets get into the system only through `aihsm put`, from a hidden prompt, never by
+* Secrets get into the system only through `aihsm put`, from a hidden prompt, never by
   being pasted into chat.
-- Stored values are never printed by any command in this tool. There is no `aihsm show`
+
+* Stored values are never printed by any command in this tool. There is no `aihsm show`
   or `aihsm get`. If you need to see a value, open your OS credential manager yourself.
   Each secret is filed there under the name `<yourname>@aihsm`, the same
   on Windows, macOS, and Linux, so it is easy to find.
-- When a command needs a secret at runtime, `aihsm run` injects it and masks the value out
+
+* When a command needs a secret at runtime, `aihsm run` injects it and masks the value out
   of that command's output, so the key does not surface in the chat even if the command
   tries to print it.
-- Anything that has already been typed into a chat message is compromised, whether the
+
+* Anything that has already been typed into a chat message is compromised, whether the
   hook caught it or not. Rotate it. A key that a human or a model has seen is a key you
   should treat as burned, and no tool can undo that after the fact.
 
