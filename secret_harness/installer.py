@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+from secret_harness import log
+
 
 def hook_command() -> str:
     return '"{0}" -m secret_harness.detect'.format(sys.executable)
@@ -67,15 +69,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         try:
             import keyring  # noqa: F401
         except ImportError:
+            log.error("install aborted: keyring not importable")
             sys.stderr.write(
                 "keyring is not installed. Run: python -m pip install --user keyring\n"
             )
             return 1
         merge_hook(_settings_path(), hook_command())
+        log.info("hook installed")
         sys.stdout.write("Secret-Harness hook installed.\n")
         return 0
     if action == "uninstall-hook":
         remove_hook(_settings_path(), hook_command())
+        log.info("hook removed")
         sys.stdout.write("Secret-Harness hook removed.\n")
         return 0
     sys.stderr.write("Usage: python -m secret_harness.installer [install-hook|uninstall-hook]\n")

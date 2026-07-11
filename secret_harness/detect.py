@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 from typing import Tuple
 
-from secret_harness import messages
+from secret_harness import log, messages
 from secret_harness.allowlist import AllowList, get_or_create_salt
 from secret_harness.patterns import find_secrets
 
@@ -28,11 +28,13 @@ def run(payload, config_dir):
     if prompt.lstrip().startswith(BYPASS_TOKEN):
         for finding in findings:
             allow.add(finding.value)
+        log.info("bypass used: allowlisted " + str(len(findings)) + " finding(s)")
         return (0, "")
 
     active = [f for f in findings if not allow.contains(f.value)]
     if active:
         first = active[0]
+        log.info("blocked prompt: rule=" + first.rule)
         return (2, messages.secret_detected_message(first.rule, _suggested_name(first.rule)))
     return (0, "")
 
@@ -49,6 +51,7 @@ def main():
     except SystemExit:
         raise
     except Exception as exc:  # fail closed
+        log.error("guard failure: " + type(exc).__name__)
         sys.stderr.write(
             messages.guard_failure_message(
                 error_summary="{0}: {1}".format(type(exc).__name__, exc),
