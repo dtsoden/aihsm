@@ -22,31 +22,49 @@ if ! python3 -m aihsm.installer install-hook; then
   exit 1
 fi
 
+PRIMARY_RC=""
 if ! command -v aihsm >/dev/null 2>&1; then
   SCRIPTS="$(python3 -c 'import sysconfig; print(sysconfig.get_path("scripts","posix_user"))' 2>/dev/null || true)"
   if [ -n "$SCRIPTS" ] && [ -d "$SCRIPTS" ]; then
     case ":${PATH}:" in
       *":${SCRIPTS}:"*) ;;
       *)
-        added=0
-        # Cover login and interactive shells on both Linux and macOS:
-        # bash logins read .bash_profile, zsh logins read .zprofile.
+        LINE="export PATH=\"$SCRIPTS:\$PATH\""
+        # Pick the startup file for the user's actual login shell, and CREATE
+        # it if it does not exist. A fresh macOS account often has no ~/.zshrc
+        # yet, so writing only to files that already exist would silently do
+        # nothing. zsh (the macOS default) reads ~/.zshrc for interactive shells.
+        case "$(basename "${SHELL:-/bin/sh}")" in
+          zsh)  PRIMARY_RC="$HOME/.zshrc" ;;
+          bash) if [ -f "$HOME/.bash_profile" ]; then PRIMARY_RC="$HOME/.bash_profile"; else PRIMARY_RC="$HOME/.profile"; fi ;;
+          *)    PRIMARY_RC="$HOME/.profile" ;;
+        esac
+        if [ ! -f "$PRIMARY_RC" ] || ! grep -qF "$SCRIPTS" "$PRIMARY_RC"; then
+          printf '\n# Added by aihsm installer\n%s\n' "$LINE" >> "$PRIMARY_RC"
+        fi
+        # Also update any other common startup files that already exist, so a
+        # different shell picks it up too. Harmless if redundant.
         for RC in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" \
                   "$HOME/.zprofile" "$HOME/.zshrc"; do
-          if [ -f "$RC" ] && ! grep -qF "$SCRIPTS" "$RC"; then
-            printf '\n# Added by aihsm installer\nexport PATH="%s:$PATH"\n' "$SCRIPTS" >> "$RC"
-            added=1
+          if [ "$RC" != "$PRIMARY_RC" ] && [ -f "$RC" ] && ! grep -qF "$SCRIPTS" "$RC"; then
+            printf '\n# Added by aihsm installer\n%s\n' "$LINE" >> "$RC"
           fi
         done
-        if [ "$added" -eq 1 ]; then
-          echo "Added $SCRIPTS to your shell profile so 'aihsm' works."
-          echo "Open a new terminal, or run 'source ~/.profile', for 'aihsm' to be available."
-        else
-          echo "Note: 'aihsm' is not on PATH and no shell profile was found to update. Run it as:  python3 -m aihsm.cli"
-        fi
+        # Make it available in THIS shell too, in case the script is sourced.
+        export PATH="$SCRIPTS:$PATH"
+        echo "Added $SCRIPTS to your PATH via $PRIMARY_RC."
         ;;
     esac
+  else
+    echo "Note: could not locate the scripts directory. Run aihsm as:  python3 -m aihsm.cli"
   fi
 fi
 
-echo "Done. Store a secret with:  aihsm put my-key"
+echo ""
+echo "Done."
+if [ -n "$PRIMARY_RC" ]; then
+  echo "IMPORTANT: open a NEW terminal window, then run:  aihsm put my-key"
+  echo "(or, in this same window, run:  source $PRIMARY_RC  then  aihsm put my-key)"
+else
+  echo "Store a secret with:  aihsm put my-key"
+fi
