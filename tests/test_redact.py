@@ -116,3 +116,102 @@ def test_needle_split_across_many_small_chunks():
     out = _run(r, chunks)
     assert b"****" in out
     assert needle not in out
+
+
+def test_three_needle_overlap_chain():
+    # A chain of three secrets each overlapping the next: the union of spans
+    # covers the whole buffer regardless of the order they are supplied.
+    text = b"AAAmidYYYbbb"
+    orderings = [
+        [b"AAAmid", b"midYYY", b"YYYbbb"],
+        [b"YYYbbb", b"midYYY", b"AAAmid"],
+        [b"midYYY", b"AAAmid", b"YYYbbb"],
+    ]
+    for needles in orderings:
+        r = StreamRedactor(needles)
+        out = _run(r, [text])
+        assert out == b"****"
+        for frag in (b"AAA", b"bbb", b"mid", b"YYY"):
+            assert frag not in out
+        for needle in needles:
+            assert needle not in out
+
+    # Unequal-length chain variant.
+    for needles in (
+        [b"AAAmi", b"midYY", b"YYYbbb"],
+        [b"YYYbbb", b"midYY", b"AAAmi"],
+    ):
+        r = StreamRedactor(needles)
+        out = _run(r, [text])
+        assert out == b"****"
+        for frag in (b"AAA", b"bbb"):
+            assert frag not in out
+
+
+def test_overlap_split_sweep():
+    # Sweep the read boundary through every split index of an overlapping
+    # pair; every split point must still collapse to a single mask.
+    needles = [b"AAAmid", b"midBBB"]
+    text = b"AAAmidBBB"
+    for i in range(len(text) + 1):
+        r = StreamRedactor(needles)
+        out = _run(r, [text[:i], text[i:]])
+        assert out == b"****", "leak at split index {0}: {1!r}".format(i, out)
+        for frag in (b"AAA", b"BBB", b"mid"):
+            assert frag not in out, "fragment {0!r} at split {1}".format(frag, i)
+
+
+def test_multibyte_needle_split_midcodepoint():
+    # Byte-level matching must survive a needle split in the middle of a
+    # multi-byte UTF-8 character.
+    needle = "clé-SECRET-€".encode("utf-8")
+    text = b"before " + needle + b" after"
+    # Split inside the multi-byte euro sign near the end of the needle.
+    euro = "€".encode("utf-8")
+    assert len(euro) > 1
+    split_at = text.index(euro) + 1  # mid-codepoint of the euro character
+    r = StreamRedactor([needle])
+    out = _run(r, [text[:split_at], text[split_at:]])
+    assert needle not in out
+    assert b"****" in out
+    assert out == b"before **** after"
+
+
+def test_feed_empty_and_flush():
+    r = StreamRedactor([b"SECRET"])
+    assert r.feed(b"") == b""
+    assert r.flush() == b""
+
+    r2 = StreamRedactor([b"SECRET"])
+    out = r2.feed(b"just some clean text")
+    out += r2.feed(b"")
+    out += r2.flush()
+    assert out == b"just some clean text"
+
+
+def test_match_completes_inside_held_tail():
+    # Feed the needle's first L-1 bytes (which live entirely in the held
+    # tail), then the final byte, then flush: the completed match must mask.
+    needle = b"TAILSECRET"
+    r = StreamRedactor([needle])
+    out = r.feed(needle[:-1])
+    out += r.feed(needle[-1:])
+    out += r.flush()
+    assert out == b"****"
+    assert needle not in out
+
+
+def test_needle_longer_than_buffer():
+    needle = b"AVERYLONGSECRETVALUE"
+    # Only a prefix of the needle is ever fed: it is not a full match, so it
+    # passes through unmasked, and nothing raises.
+    r = StreamRedactor([needle])
+    prefix = needle[:8]
+    out = _run(r, [prefix])
+    assert out == prefix
+
+    # The full needle fed across chunks IS a match and gets masked.
+    r2 = StreamRedactor([needle])
+    out2 = _run(r2, [needle[:5], needle[5:12], needle[12:]])
+    assert out2 == b"****"
+    assert needle not in out2
