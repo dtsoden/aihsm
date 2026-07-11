@@ -8,94 +8,89 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! python3 -m pip install --user .; then
-  echo "pip install failed. If you saw 'externally-managed-environment', install with pipx ('pipx install .') or inside a virtualenv instead. See the README Install section." >&2
+APP_DIR="$HOME/.aihsm"
+VENV="$APP_DIR/venv"
+BIN_LINK_DIR="$HOME/.local/bin"
+
+# Install into a dedicated virtual environment rather than with 'pip --user'.
+# The system python on macOS (the Xcode Command Line Tools build) does not
+# reliably honor --user installs, and Homebrew/modern Linux pythons refuse
+# --user under PEP 668. A venv carries its own working pip and sidesteps all
+# of that, on every OS.
+echo "Creating an isolated environment at $VENV ..."
+rm -rf "$VENV"
+if ! python3 -m venv "$VENV"; then
+  echo "Failed to create a virtual environment with 'python3 -m venv'." >&2
+  echo "Your python3 may be missing the venv module. Install it and re-run." >&2
   exit 1
 fi
 
+echo "Installing the package ..."
+"$VENV/bin/python" -m pip install --upgrade pip >/dev/null 2>&1 || true
+if ! "$VENV/bin/python" -m pip install . ; then
+  echo "pip install failed inside the environment. See the output above for why." >&2
+  exit 1
+fi
+
+if [ ! -x "$VENV/bin/aihsm" ]; then
+  echo "Install finished but the aihsm command was not created. Aborting." >&2
+  exit 1
+fi
+
+# Copy the skill so Claude knows the rules.
 SKILL_DIR="$HOME/.claude/skills/aihsm"
 mkdir -p "$SKILL_DIR"
 cp "skills/aihsm/SKILL.md" "$SKILL_DIR/SKILL.md"
 
-if ! python3 -m aihsm.installer install-hook; then
+# Register the hook using the venv's python, so the hook can import aihsm.
+if ! "$VENV/bin/python" -m aihsm.installer install-hook; then
   echo "Hook install failed. Aborting." >&2
   exit 1
 fi
 
+# Expose the aihsm command on PATH via a symlink in ~/.local/bin. We link only
+# the aihsm executable, not the whole venv bin, so we never shadow your python.
+mkdir -p "$BIN_LINK_DIR"
+ln -sf "$VENV/bin/aihsm" "$BIN_LINK_DIR/aihsm"
+
+# Make sure ~/.local/bin is on PATH for the user's login shell, creating the
+# startup file if it does not exist yet (a fresh macOS account has no ~/.zshrc).
 PRIMARY_RC=""
-BIN_DIR=""
-if ! command -v aihsm >/dev/null 2>&1; then
-  # Do not guess where pip put the executable: query for it and verify it is
-  # really there before touching PATH.
-  CAND="$(python3 -c 'import sysconfig; print(sysconfig.get_path("scripts","posix_user"))' 2>/dev/null || true)"
-  if [ -n "$CAND" ] && [ -x "$CAND/aihsm" ]; then
-    BIN_DIR="$CAND"
-  else
-    # Fallback: search the common per-user bin locations for this interpreter.
-    BIN_DIR="$(python3 - <<'PY' 2>/dev/null || true
-import os, glob, sysconfig
-cands = []
-for scheme in ("posix_user", "posix_prefix"):
-    try:
-        cands.append(sysconfig.get_path("scripts", scheme))
-    except Exception:
-        pass
-cands.append(os.path.expanduser("~/.local/bin"))
-cands += glob.glob(os.path.expanduser("~/Library/Python/*/bin"))
-for d in cands:
-    if d and os.path.exists(os.path.join(d, "aihsm")):
-        print(d)
-        break
-PY
-)"
-  fi
-
-  if [ -n "$BIN_DIR" ] && [ -x "$BIN_DIR/aihsm" ]; then
-    case ":${PATH}:" in
-      *":${BIN_DIR}:"*) ;;
-      *)
-        LINE="export PATH=\"$BIN_DIR:\$PATH\""
-        # Pick the startup file for the user's actual login shell, and CREATE
-        # it if it does not exist. A fresh macOS account often has no ~/.zshrc
-        # yet, so writing only to files that already exist would silently do
-        # nothing. zsh (the macOS default) reads ~/.zshrc for interactive shells.
-        case "$(basename "${SHELL:-/bin/sh}")" in
-          zsh)  PRIMARY_RC="$HOME/.zshrc" ;;
-          bash) if [ -f "$HOME/.bash_profile" ]; then PRIMARY_RC="$HOME/.bash_profile"; else PRIMARY_RC="$HOME/.profile"; fi ;;
-          *)    PRIMARY_RC="$HOME/.profile" ;;
-        esac
-        if [ ! -f "$PRIMARY_RC" ] || ! grep -qF "$BIN_DIR" "$PRIMARY_RC"; then
-          printf '\n# Added by aihsm installer\n%s\n' "$LINE" >> "$PRIMARY_RC"
-        fi
-        # Also update any other common startup files that already exist.
-        for RC in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" \
-                  "$HOME/.zprofile" "$HOME/.zshrc"; do
-          if [ "$RC" != "$PRIMARY_RC" ] && [ -f "$RC" ] && ! grep -qF "$BIN_DIR" "$RC"; then
-            printf '\n# Added by aihsm installer\n%s\n' "$LINE" >> "$RC"
-          fi
-        done
-        export PATH="$BIN_DIR:$PATH"
-        echo "Found aihsm at: $BIN_DIR/aihsm"
-        echo "Added it to your PATH via $PRIMARY_RC."
-        ;;
+case ":${PATH}:" in
+  *":${BIN_LINK_DIR}:"*) ;;
+  *)
+    LINE="export PATH=\"$BIN_LINK_DIR:\$PATH\""
+    case "$(basename "${SHELL:-/bin/sh}")" in
+      zsh)  PRIMARY_RC="$HOME/.zshrc" ;;
+      bash) if [ -f "$HOME/.bash_profile" ]; then PRIMARY_RC="$HOME/.bash_profile"; else PRIMARY_RC="$HOME/.profile"; fi ;;
+      *)    PRIMARY_RC="$HOME/.profile" ;;
     esac
-  else
-    echo "Could not find the installed 'aihsm' executable. Run it as:  python3 -m aihsm.cli"
-  fi
-fi
+    if [ ! -f "$PRIMARY_RC" ] || ! grep -qF "$BIN_LINK_DIR" "$PRIMARY_RC"; then
+      printf '\n# Added by aihsm installer\n%s\n' "$LINE" >> "$PRIMARY_RC"
+    fi
+    for RC in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" \
+              "$HOME/.zprofile" "$HOME/.zshrc"; do
+      if [ "$RC" != "$PRIMARY_RC" ] && [ -f "$RC" ] && ! grep -qF "$BIN_LINK_DIR" "$RC"; then
+        printf '\n# Added by aihsm installer\n%s\n' "$LINE" >> "$RC"
+      fi
+    done
+    export PATH="$BIN_LINK_DIR:$PATH"
+    ;;
+esac
 
-# Final verification: confirm aihsm actually resolves now.
 echo ""
-if command -v aihsm >/dev/null 2>&1; then
-  echo "Done. Verified: 'aihsm' runs from $(command -v aihsm)."
+echo "======================================================"
+if "$BIN_LINK_DIR/aihsm" --help >/dev/null 2>&1; then
+  echo "SUCCESS: aihsm is installed and verified working."
+  echo "Command: $BIN_LINK_DIR/aihsm"
   if [ -n "$PRIMARY_RC" ]; then
-    echo "Open a NEW terminal window and it will be there too (this run already made it work here)."
+    echo ""
+    echo "Open a NEW terminal window, then run:  aihsm put my-key"
+    echo "(or in this window:  source $PRIMARY_RC  then  aihsm put my-key)"
+  else
+    echo "Run:  aihsm put my-key"
   fi
-  echo "Store a secret with:  aihsm put my-key"
-elif [ -n "$PRIMARY_RC" ]; then
-  echo "Done. 'aihsm' was added to your PATH via $PRIMARY_RC."
-  echo "IMPORTANT: open a NEW terminal window, then run:  aihsm put my-key"
-  echo "(or in this window:  source $PRIMARY_RC  then  aihsm put my-key)"
 else
-  echo "Done. Run aihsm as:  python3 -m aihsm.cli"
+  echo "aihsm installed to $VENV but did not run. Please copy this output to me."
 fi
+echo "======================================================"
