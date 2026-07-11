@@ -23,13 +23,38 @@ if ! python3 -m aihsm.installer install-hook; then
 fi
 
 PRIMARY_RC=""
+BIN_DIR=""
 if ! command -v aihsm >/dev/null 2>&1; then
-  SCRIPTS="$(python3 -c 'import sysconfig; print(sysconfig.get_path("scripts","posix_user"))' 2>/dev/null || true)"
-  if [ -n "$SCRIPTS" ] && [ -d "$SCRIPTS" ]; then
+  # Do not guess where pip put the executable: query for it and verify it is
+  # really there before touching PATH.
+  CAND="$(python3 -c 'import sysconfig; print(sysconfig.get_path("scripts","posix_user"))' 2>/dev/null || true)"
+  if [ -n "$CAND" ] && [ -x "$CAND/aihsm" ]; then
+    BIN_DIR="$CAND"
+  else
+    # Fallback: search the common per-user bin locations for this interpreter.
+    BIN_DIR="$(python3 - <<'PY' 2>/dev/null || true
+import os, glob, sysconfig
+cands = []
+for scheme in ("posix_user", "posix_prefix"):
+    try:
+        cands.append(sysconfig.get_path("scripts", scheme))
+    except Exception:
+        pass
+cands.append(os.path.expanduser("~/.local/bin"))
+cands += glob.glob(os.path.expanduser("~/Library/Python/*/bin"))
+for d in cands:
+    if d and os.path.exists(os.path.join(d, "aihsm")):
+        print(d)
+        break
+PY
+)"
+  fi
+
+  if [ -n "$BIN_DIR" ] && [ -x "$BIN_DIR/aihsm" ]; then
     case ":${PATH}:" in
-      *":${SCRIPTS}:"*) ;;
+      *":${BIN_DIR}:"*) ;;
       *)
-        LINE="export PATH=\"$SCRIPTS:\$PATH\""
+        LINE="export PATH=\"$BIN_DIR:\$PATH\""
         # Pick the startup file for the user's actual login shell, and CREATE
         # it if it does not exist. A fresh macOS account often has no ~/.zshrc
         # yet, so writing only to files that already exist would silently do
@@ -39,32 +64,38 @@ if ! command -v aihsm >/dev/null 2>&1; then
           bash) if [ -f "$HOME/.bash_profile" ]; then PRIMARY_RC="$HOME/.bash_profile"; else PRIMARY_RC="$HOME/.profile"; fi ;;
           *)    PRIMARY_RC="$HOME/.profile" ;;
         esac
-        if [ ! -f "$PRIMARY_RC" ] || ! grep -qF "$SCRIPTS" "$PRIMARY_RC"; then
+        if [ ! -f "$PRIMARY_RC" ] || ! grep -qF "$BIN_DIR" "$PRIMARY_RC"; then
           printf '\n# Added by aihsm installer\n%s\n' "$LINE" >> "$PRIMARY_RC"
         fi
-        # Also update any other common startup files that already exist, so a
-        # different shell picks it up too. Harmless if redundant.
+        # Also update any other common startup files that already exist.
         for RC in "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bashrc" \
                   "$HOME/.zprofile" "$HOME/.zshrc"; do
-          if [ "$RC" != "$PRIMARY_RC" ] && [ -f "$RC" ] && ! grep -qF "$SCRIPTS" "$RC"; then
+          if [ "$RC" != "$PRIMARY_RC" ] && [ -f "$RC" ] && ! grep -qF "$BIN_DIR" "$RC"; then
             printf '\n# Added by aihsm installer\n%s\n' "$LINE" >> "$RC"
           fi
         done
-        # Make it available in THIS shell too, in case the script is sourced.
-        export PATH="$SCRIPTS:$PATH"
-        echo "Added $SCRIPTS to your PATH via $PRIMARY_RC."
+        export PATH="$BIN_DIR:$PATH"
+        echo "Found aihsm at: $BIN_DIR/aihsm"
+        echo "Added it to your PATH via $PRIMARY_RC."
         ;;
     esac
   else
-    echo "Note: could not locate the scripts directory. Run aihsm as:  python3 -m aihsm.cli"
+    echo "Could not find the installed 'aihsm' executable. Run it as:  python3 -m aihsm.cli"
   fi
 fi
 
+# Final verification: confirm aihsm actually resolves now.
 echo ""
-echo "Done."
-if [ -n "$PRIMARY_RC" ]; then
-  echo "IMPORTANT: open a NEW terminal window, then run:  aihsm put my-key"
-  echo "(or, in this same window, run:  source $PRIMARY_RC  then  aihsm put my-key)"
-else
+if command -v aihsm >/dev/null 2>&1; then
+  echo "Done. Verified: 'aihsm' runs from $(command -v aihsm)."
+  if [ -n "$PRIMARY_RC" ]; then
+    echo "Open a NEW terminal window and it will be there too (this run already made it work here)."
+  fi
   echo "Store a secret with:  aihsm put my-key"
+elif [ -n "$PRIMARY_RC" ]; then
+  echo "Done. 'aihsm' was added to your PATH via $PRIMARY_RC."
+  echo "IMPORTANT: open a NEW terminal window, then run:  aihsm put my-key"
+  echo "(or in this window:  source $PRIMARY_RC  then  aihsm put my-key)"
+else
+  echo "Done. Run aihsm as:  python3 -m aihsm.cli"
 fi
