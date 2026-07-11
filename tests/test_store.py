@@ -1,3 +1,5 @@
+import json
+
 import keyring.errors
 import pytest
 
@@ -65,6 +67,20 @@ def test_index_file_holds_names_not_values(fake, tmp_path):
     index_text = (tmp_path / "names.json").read_text(encoding="utf-8")
     assert "mykey" in index_text
     assert "verysecret" not in index_text
+
+
+def test_list_prunes_names_deleted_outside_the_tool(fake, tmp_path):
+    # User stores two, then deletes one directly in the OS credential manager
+    # (bypassing store.delete_secret, so the name index is now stale).
+    store.store_secret("keep", "v1", tmp_path)
+    store.store_secret("gone", "v2", tmp_path)
+    fake.data.pop((store.SERVICE, "gone"), None)  # external deletion
+    # list must reflect reality, not the stale index.
+    assert store.list_names(tmp_path) == ["keep"]
+    # and it must have healed the index on disk.
+    healed = json.loads((tmp_path / "names.json").read_text(encoding="utf-8"))
+    assert "gone" not in healed
+    assert "keep" in healed
 
 
 def test_delete_missing_name_does_not_raise(strict_fake, tmp_path):
