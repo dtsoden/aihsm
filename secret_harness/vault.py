@@ -69,12 +69,16 @@ def cmd_run(args):
 
     needles = [s.encode("utf-8", "surrogateescape") for s in secrets]
 
-    proc = subprocess.Popen(
-        command,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    try:
+        proc = subprocess.Popen(
+            command,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError as err:
+        sys.stderr.write("Cannot run command: {0}\n".format(err))
+        return 1
 
     stdout_thread = threading.Thread(
         target=_pump,

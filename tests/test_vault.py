@@ -128,6 +128,19 @@ def test_run_delivers_real_value_to_child_while_masking_stdout(wired, monkeypatc
     assert "****" in out
 
 
+def test_run_bad_command_returns_nonzero_without_raising(wired, monkeypatch, capsys):
+    monkeypatch.setattr(vault.getpass, "getpass", lambda prompt="": "v")
+    vault.main(["put", "tok"])
+    capsys.readouterr()
+    try:
+        rc = vault.main(["run", "--set", "TOK=tok", "--", "this-command-does-not-exist-xyz"])
+    except OSError:
+        pytest.fail("vault run raised OSError instead of returning an error code")
+    assert isinstance(rc, int)
+    assert rc != 0
+    assert "Cannot run command" in capsys.readouterr().err
+
+
 def test_run_returns_child_exit_code(wired, monkeypatch, capsys):
     monkeypatch.setattr(vault.getpass, "getpass", lambda prompt="": "v")
     vault.main(["put", "tok"])

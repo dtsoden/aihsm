@@ -13,8 +13,12 @@ MASK = b"****"
 class StreamRedactor(object):
     def __init__(self, needles):
         # Only keep non-empty needles; an empty needle would match between
-        # every byte and mask everything.
-        self._needles = [n for n in needles if n]
+        # every byte and mask everything. Sort by descending length so the
+        # longest match always wins: if one secret is a substring (e.g. a
+        # prefix) of another, replacing the shorter one first would strip its
+        # bytes and let the surrounding bytes of the longer secret leak. This
+        # makes redaction independent of the order secrets were passed in.
+        self._needles = sorted((n for n in needles if n), key=len, reverse=True)
         if self._needles:
             self._tail_len = max(len(n) for n in self._needles) - 1
         else:

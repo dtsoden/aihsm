@@ -31,6 +31,30 @@ def test_multiple_needles_both_redacted():
     assert out.count(b"****") == 2
 
 
+def test_needle_that_is_prefix_of_another():
+    # "abc123" is a prefix of "abc123xyz". Whichever order the needles come
+    # in, the full longer secret and its trailing fragment must both vanish.
+    for needles in ([b"abc123", b"abc123xyz"], [b"abc123xyz", b"abc123"]):
+        r = StreamRedactor(needles)
+        out = _run(r, [b"abc123xyz"])
+        assert b"abc123xyz" not in out
+        assert b"xyz" not in out
+        assert b"abc123" not in out
+        assert out == b"****"
+
+
+def test_needle_that_is_substring_in_middle():
+    # "xyz" sits in the middle of "abcxyzdef". The longer secret must win so
+    # its surrounding bytes never leak, regardless of needle order.
+    for needles in ([b"xyz", b"abcxyzdef"], [b"abcxyzdef", b"xyz"]):
+        r = StreamRedactor(needles)
+        out = _run(r, [b"abcxyzdef"])
+        assert b"abcxyzdef" not in out
+        assert b"abc" not in out
+        assert b"def" not in out
+        assert out == b"****"
+
+
 def test_empty_needle_is_ignored_and_does_not_blow_up():
     r = StreamRedactor([b"", b"SECRET"])
     out = _run(r, [b"abcSECRETdef"])
