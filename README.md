@@ -54,8 +54,11 @@ then on, store real secrets with `vault put <name>` and refer to them by name.
 
 ## Usage
 
-Store a secret. You are prompted for the value; it is never echoed and never appears in
-chat.
+Store a secret. You give the name on the command line; the value is never passed as an
+argument (that would leave it in your shell history). You are prompted for the value twice,
+hidden both times, so a typo can't be saved by mistake. Nothing shows as you type or paste,
+which is normal; when it saves, it confirms how many characters it stored so you know your
+paste landed.
 
 ```bash
 vault put github-token

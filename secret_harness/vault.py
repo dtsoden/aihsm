@@ -17,13 +17,31 @@ def _config_dir():
 
 
 def cmd_put(args):
-    value = getpass.getpass("Value for '{0}' (input hidden): ".format(args.name))
+    if args.extra:
+        sys.stderr.write(
+            "Do not pass the secret value on the command line: it would be saved in your\n"
+            "shell history and visible to other programs.\n"
+            "Run:  vault put {0}\n"
+            "and you will be prompted to enter the value privately.\n".format(args.name)
+        )
+        return 1
+    value = getpass.getpass(
+        "Value for '{0}' (hidden, nothing will show as you type or paste): ".format(args.name)
+    )
     if not value:
-        sys.stderr.write("Aborted: empty value.\n")
+        sys.stderr.write("Aborted: empty value, nothing was stored.\n")
+        return 1
+    confirm = getpass.getpass("Enter or paste it once more to confirm: ")
+    if value != confirm:
+        sys.stderr.write(
+            "The two entries did not match. Nothing was stored. Run the command again.\n"
+        )
         return 1
     store.store_secret(args.name, value, _config_dir())
     log.info("vault put: " + args.name)
-    sys.stdout.write("Stored '{0}' in the OS vault.\n".format(args.name))
+    sys.stdout.write(
+        "Stored '{0}' in the OS vault ({1} characters).\n".format(args.name, len(value))
+    )
     return 0
 
 
@@ -144,6 +162,7 @@ def build_parser():
 
     p_put = sub.add_parser("put", help="Store a secret via a hidden prompt.")
     p_put.add_argument("name")
+    p_put.add_argument("extra", nargs="*", help=argparse.SUPPRESS)
     p_put.set_defaults(func=cmd_put)
 
     p_run = sub.add_parser("run", help="Inject secrets into a command's env and run it.")
