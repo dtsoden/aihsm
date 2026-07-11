@@ -54,6 +54,12 @@ def test_remove_hook_missing_file_is_noop(tmp_path):
     assert not settings.exists()
 
 
+def test_load_ignores_non_list_json(tmp_path):
+    settings = tmp_path / "settings.json"
+    settings.write_text("5", encoding="utf-8")
+    assert installer._load(settings) == {}
+
+
 def test_remove_hook_no_userpromptsubmit_is_noop(tmp_path):
     settings = tmp_path / "settings.json"
     settings.write_text(

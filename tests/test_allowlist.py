@@ -34,3 +34,10 @@ def test_corrupt_file_is_ignored(tmp_path):
     path.write_text("not json", encoding="utf-8")
     al = AllowList(path, salt="s")
     assert not al.contains("anything")
+
+
+def test_non_list_json_is_ignored(tmp_path):
+    path = tmp_path / "allow.json"
+    path.write_text("5", encoding="utf-8")
+    al = AllowList(path, salt="s")
+    assert not al.contains("anything")

@@ -56,6 +56,17 @@ Run a command with a secret injected into its environment, without ever printing
 vault run --set GITHUB_TOKEN=github-token -- gh api /user
 ```
 
+`vault run` puts the secret into the child command's environment; it does not stop that
+command from printing the secret itself, say, in a debug log or an error message. Keeping
+the child command quiet about the value it was given is a rule for the model to follow, set
+out in the accompanying skill, not something the code can enforce.
+
+If `vault` is not found after install (a PATH issue), run it as a module instead:
+
+```bash
+python -m secret_harness.vault list
+```
+
 List what is stored, by name only:
 
 ```bash

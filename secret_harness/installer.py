@@ -12,8 +12,8 @@ def hook_command() -> str:
 def _load(settings_path: Path) -> dict:
     if settings_path.exists():
         try:
-            return json.loads(settings_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, ValueError):
+            return dict(json.loads(settings_path.read_text(encoding="utf-8")))
+        except (json.JSONDecodeError, ValueError, TypeError):
             return {}
     return {}
 

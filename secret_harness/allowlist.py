@@ -26,7 +26,7 @@ class AllowList:
         if self.path.exists():
             try:
                 return set(json.loads(self.path.read_text(encoding="utf-8")))
-            except (json.JSONDecodeError, ValueError):
+            except (json.JSONDecodeError, ValueError, TypeError):
                 return set()
         return set()
 
