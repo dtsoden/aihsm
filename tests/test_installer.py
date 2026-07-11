@@ -46,3 +46,21 @@ def test_remove_hook_leaves_others(tmp_path):
     installer.remove_hook(settings, "cmd-x")
     commands = [e["command"] for e in json.loads(settings.read_text())["hooks"]["UserPromptSubmit"]]
     assert commands == ["keep-me"]
+
+
+def test_remove_hook_missing_file_is_noop(tmp_path):
+    settings = tmp_path / "settings.json"
+    installer.remove_hook(settings, "cmd-x")
+    assert not settings.exists()
+
+
+def test_remove_hook_no_userpromptsubmit_is_noop(tmp_path):
+    settings = tmp_path / "settings.json"
+    settings.write_text(
+        json.dumps({"hooks": {"PostToolUse": [{"type": "command", "command": "pt"}]}}),
+        encoding="utf-8",
+    )
+    installer.remove_hook(settings, "cmd-x")
+    data = json.loads(settings.read_text())
+    assert data["hooks"]["PostToolUse"] == [{"type": "command", "command": "pt"}]
+    assert "UserPromptSubmit" not in data["hooks"]

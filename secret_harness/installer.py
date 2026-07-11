@@ -46,8 +46,13 @@ def merge_hook(
 
 def remove_hook(settings_path: Path, command: str) -> None:
     data = _load(settings_path)
-    entries = data.get("hooks", {}).get("UserPromptSubmit", [])
-    data["hooks"]["UserPromptSubmit"] = [e for e in entries if e.get("command") != command]
+    hooks = data.get("hooks")
+    if not isinstance(hooks, dict) or "UserPromptSubmit" not in hooks:
+        return
+    if settings_path.exists():
+        shutil.copy2(settings_path, settings_path.with_name(settings_path.name + ".bak"))
+    entries = hooks["UserPromptSubmit"]
+    hooks["UserPromptSubmit"] = [e for e in entries if e.get("command") != command]
     _write(settings_path, data)
 
 
