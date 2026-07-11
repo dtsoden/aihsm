@@ -28,10 +28,46 @@ def wired(monkeypatch, tmp_path):
 
 
 def test_put_reads_hidden_input(wired, monkeypatch, capsys):
+    # Entered twice for confirmation; both match.
     monkeypatch.setattr(vault.getpass, "getpass", lambda prompt="": "s3cret")
     rc = vault.main(["put", "mykey"])
     assert rc == 0
     assert store.get_secret("mykey", wired) == "s3cret"
+
+
+def test_put_reports_length_on_success(wired, monkeypatch, capsys):
+    monkeypatch.setattr(vault.getpass, "getpass", lambda prompt="": "abcdef")
+    rc = vault.main(["put", "k"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "6 characters" in out
+
+
+def test_put_mismatch_aborts_and_stores_nothing(wired, monkeypatch, capsys):
+    entries = iter(["first-value", "second-value"])
+    monkeypatch.setattr(vault.getpass, "getpass", lambda prompt="": next(entries))
+    rc = vault.main(["put", "mykey"])
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert "did not match" in err
+    assert store.get_secret("mykey", wired) is None
+
+
+def test_put_rejects_value_on_command_line(wired, monkeypatch, capsys):
+    # Passing the value as an argument must be refused (it would leak into shell history).
+    called = {"n": 0}
+
+    def _boom(prompt=""):
+        called["n"] += 1
+        return "should-not-be-called"
+
+    monkeypatch.setattr(vault.getpass, "getpass", _boom)
+    rc = vault.main(["put", "mykey", "my-secret-value"])
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert "command line" in err
+    assert called["n"] == 0
+    assert store.get_secret("mykey", wired) is None
 
 
 def test_list_prints_names_only(wired, monkeypatch, capsys):
