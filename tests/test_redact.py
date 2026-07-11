@@ -1,4 +1,4 @@
-from secret_harness.redact import StreamRedactor
+from aihsm.redact import StreamRedactor
 
 
 def _run(redactor, chunks):

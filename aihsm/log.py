@@ -1,4 +1,4 @@
-"""Bounded, self-cleaning logging for secret-harness.
+"""Bounded, self-cleaning logging for aihsm.
 
 Two rules govern everything in this module:
 
@@ -19,7 +19,7 @@ from pathlib import Path
 DEFAULT_MAX_BYTES = 1_000_000
 DEFAULT_BACKUPS = 4
 
-_LOGGER_NAME = "secret_harness"
+_LOGGER_NAME = "aihsm"
 _NO_LOG_ENV = "SECRET_HARNESS_NO_LOG"
 
 _configured = False
@@ -27,7 +27,7 @@ _configured = False
 
 def default_log_path():
     # type: () -> Path
-    return Path.home() / ".claude" / "secret-harness" / "logs" / "secret-harness.log"
+    return Path.home() / ".claude" / "aihsm" / "logs" / "aihsm.log"
 
 
 def _clear_handlers(logger):
@@ -44,7 +44,7 @@ def _clear_handlers(logger):
 
 def get_logger(log_path=None, max_bytes=DEFAULT_MAX_BYTES, backups=DEFAULT_BACKUPS, force=False):
     # type: (..., int, int, bool) -> logging.Logger
-    """Return the shared secret_harness logger, configured exactly once.
+    """Return the shared aihsm logger, configured exactly once.
 
     Repeat calls with force=False return the already-configured logger
     without touching its handlers. Pass force=True (tests only, normally) to

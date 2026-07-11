@@ -6,14 +6,14 @@ import sys
 import threading
 from pathlib import Path
 
-from secret_harness import log, store
-from secret_harness.redact import StreamRedactor
+from aihsm import log, store
+from aihsm.redact import StreamRedactor
 
 _CHUNK_SIZE = 4096
 
 
 def _config_dir():
-    return Path.home() / ".claude" / "secret-harness"
+    return Path.home() / ".claude" / "aihsm"
 
 
 def cmd_put(args):
@@ -21,7 +21,7 @@ def cmd_put(args):
         sys.stderr.write(
             "Do not pass the secret value on the command line: it would be saved in your\n"
             "shell history and visible to other programs.\n"
-            "Run:  vault put {0}\n"
+            "Run:  aihsm put {0}\n"
             "and you will be prompted to enter the value privately.\n".format(args.name)
         )
         return 1
@@ -38,7 +38,7 @@ def cmd_put(args):
         )
         return 1
     store.store_secret(args.name, value, _config_dir())
-    log.info("vault put: " + args.name)
+    log.info("aihsm put: " + args.name)
     sys.stdout.write(
         "Stored '{0}' in the OS vault ({1} characters).\n".format(args.name, len(value))
     )
@@ -72,12 +72,12 @@ def cmd_run(args):
     for pair in args.set:
         var, sep, name = pair.partition("=")
         if not var or not sep or not name:
-            log.error("vault run error: bad --set format")
+            log.error("aihsm run error: bad --set format")
             sys.stderr.write("Bad --set '{0}', expected VAR=NAME.\n".format(pair))
             return 1
         secret = store.get_secret(name, _config_dir())
         if secret is None:
-            log.error("vault run error: unknown name " + name)
+            log.error("aihsm run error: unknown name " + name)
             sys.stderr.write("No vault entry named '{0}'.\n".format(name))
             return 1
         env[var] = secret
@@ -87,11 +87,11 @@ def cmd_run(args):
     if command and command[0] == "--":
         command = command[1:]
     if not command:
-        log.error("vault run error: no command given")
-        sys.stderr.write("No command given. Usage: vault run --set VAR=NAME -- <command>\n")
+        log.error("aihsm run error: no command given")
+        sys.stderr.write("No command given. Usage: aihsm run --set VAR=NAME -- <command>\n")
         return 1
 
-    log.info("vault run: injected " + ", ".join(sorted(set(names_used))))
+    log.info("aihsm run: injected " + ", ".join(sorted(set(names_used))))
 
     needles = [s.encode("utf-8", "surrogateescape") for s in secrets]
 
@@ -103,7 +103,7 @@ def cmd_run(args):
             stderr=subprocess.PIPE,
         )
     except OSError as err:
-        log.error("vault run error: cannot run command")
+        log.error("aihsm run error: cannot run command")
         sys.stderr.write("Cannot run command: {0}\n".format(err))
         return 1
 
@@ -121,7 +121,7 @@ def cmd_run(args):
     stderr_thread.join()
 
     rc = proc.wait()
-    log.info("vault run exit: " + str(rc))
+    log.info("aihsm run exit: " + str(rc))
     return rc
 
 
@@ -133,18 +133,18 @@ def cmd_list(args):
 
 def cmd_rm(args):
     store.delete_secret(args.name, _config_dir())
-    log.info("vault rm: " + args.name)
+    log.info("aihsm rm: " + args.name)
     sys.stdout.write("Removed '{0}'.\n".format(args.name))
     return 0
 
 
 _EPILOG = """\
 Examples:
-  vault put github-token                 store a secret (you are prompted, input hidden)
-  vault run --set GH=github-token -- gh api /user
+  aihsm put github-token                 store a secret (you are prompted, input hidden)
+  aihsm run --set GH=github-token -- gh api /user
                                          run a command with the secret in its environment
-  vault list                             list stored names (never values)
-  vault rm github-token                  delete a stored secret
+  aihsm list                             list stored names (never values)
+  aihsm rm github-token                  delete a stored secret
 
 Stored values are never printed. To view a value, open your OS credential
 manager (Windows Credential Manager, macOS Keychain, or Linux Secret Service).
@@ -153,7 +153,7 @@ manager (Windows Credential Manager, macOS Keychain, or Linux Secret Service).
 
 def build_parser():
     parser = argparse.ArgumentParser(
-        prog="vault",
+        prog="aihsm",
         description="Store and use secrets in the operating system's credential vault.",
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,

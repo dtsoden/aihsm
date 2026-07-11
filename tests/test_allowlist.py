@@ -1,4 +1,4 @@
-from secret_harness.allowlist import AllowList, get_or_create_salt
+from aihsm.allowlist import AllowList, get_or_create_salt
 
 
 def test_salt_is_created_and_stable(tmp_path):

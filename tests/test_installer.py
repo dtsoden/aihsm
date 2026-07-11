@@ -1,6 +1,6 @@
 import json
 
-from secret_harness import installer
+from aihsm import installer
 
 
 def test_merge_into_empty_creates_hook(tmp_path):

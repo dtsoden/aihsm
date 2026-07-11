@@ -3,7 +3,7 @@ import json
 import keyring.errors
 import pytest
 
-from secret_harness import store
+from aihsm import store
 
 
 class FakeKeyring:
@@ -70,12 +70,12 @@ def test_index_file_holds_names_not_values(fake, tmp_path):
 
 
 def test_target_is_consistent_name_at_service(fake, tmp_path):
-    # Every entry is stored under "<name>@claude-secret-harness", the same on
+    # Every entry is stored under "<name>@aihsm", the same on
     # any OS, never a bare service name.
-    assert store._target("github-token") == "github-token@claude-secret-harness"
+    assert store._target("github-token") == "github-token@aihsm"
     store.store_secret("github-token", "v", tmp_path)
-    assert ("github-token@claude-secret-harness", "github-token") in fake.data
-    # no bare "claude-secret-harness" target is ever written.
+    assert ("github-token@aihsm", "github-token") in fake.data
+    # no bare "aihsm" target is ever written.
     assert all(key[0] != store.SERVICE for key in fake.data)
 
 

@@ -1,4 +1,4 @@
-from secret_harness.patterns import Finding, find_secrets, shannon_entropy
+from aihsm.patterns import Finding, find_secrets, shannon_entropy
 
 
 def test_entropy_of_repeated_char_is_zero():

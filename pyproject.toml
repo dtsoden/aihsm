@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "claude-secret-harness"
+name = "aihsm"
 version = "0.1.0"
 description = "Blocks secrets typed into Claude Code and stores them in the OS credential vault."
 readme = "README.md"
@@ -16,7 +16,7 @@ dependencies = ["keyring>=24"]
 dev = ["pytest>=7"]
 
 [project.scripts]
-vault = "secret_harness.vault:main"
+aihsm = "aihsm.cli:main"
 
 [tool.setuptools]
-packages = ["secret_harness"]
+packages = ["aihsm"]

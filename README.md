@@ -1,6 +1,8 @@
-# Claude-Secret-Harness
+# aihsm
 
-Claude-Secret-Harness stops secrets (API keys, tokens, passwords, connection strings) from
+AI Harness Secret Manager: keep API keys out of Claude Code and in your OS credential vault.
+
+aihsm stops secrets (API keys, tokens, passwords, connection strings) from
 being typed into Claude Code.
 
 Pasting a key into a chat window feels harmless in the moment: you need Claude to see a
@@ -16,13 +18,13 @@ Keychain, or the Linux Secret Service).
 
 ## The core policy
 
-- Secrets get into the system only through `vault put`, from a hidden prompt, never by
+- Secrets get into the system only through `aihsm put`, from a hidden prompt, never by
   being pasted into chat.
-- Stored values are never printed by any command in this tool. There is no `vault show`
-  or `vault get`. If you need to see a value, open your OS credential manager yourself.
-  Each secret is filed there under the name `<yourname>@claude-secret-harness`, the same
+- Stored values are never printed by any command in this tool. There is no `aihsm show`
+  or `aihsm get`. If you need to see a value, open your OS credential manager yourself.
+  Each secret is filed there under the name `<yourname>@aihsm`, the same
   on Windows, macOS, and Linux, so it is easy to find.
-- When a command needs a secret at runtime, `vault run` injects it and masks the value out
+- When a command needs a secret at runtime, `aihsm run` injects it and masks the value out
   of that command's output, so the key does not surface in the chat even if the command
   tries to print it.
 - Anything that has already been typed into a chat message is compromised, whether the
@@ -43,10 +45,10 @@ bash install.sh
 .\install.ps1
 ```
 
-The installer checks that Python 3 is present, installs the package and the `vault` CLI,
+The installer checks that Python 3 is present, installs the package and the `aihsm` CLI,
 registers the `UserPromptSubmit` hook in your Claude Code settings (backing up the existing
 settings file first, never overwriting your other hooks), copies the accompanying skill so
-Claude knows the rules around it, and adds the `vault` command to your PATH. If Python is
+Claude knows the rules around it, and adds the `aihsm` command to your PATH. If Python is
 missing or the install fails, it stops and tells you what to fix rather than half-installing.
 The same steps run on Windows, macOS, and Linux.
 
@@ -58,7 +60,7 @@ install.
 Once it finishes, the hook is active in new Claude Code sessions (restart Claude Code if it
 is already open). To confirm it works, paste a fake key like `ghp_` followed by a run of
 random letters and numbers into a message: it should be blocked before Claude sees it. From
-then on, store real secrets with `vault put <name>` and refer to them by name.
+then on, store real secrets with `aihsm put <name>` and refer to them by name.
 
 ## Usage
 
@@ -69,16 +71,16 @@ which is normal; when it saves, it confirms how many characters it stored so you
 paste landed.
 
 ```bash
-vault put github-token
+aihsm put github-token
 ```
 
 Run a command with a secret injected into its environment, without ever printing it:
 
 ```bash
-vault run --set GITHUB_TOKEN=github-token -- gh api /user
+aihsm run --set GITHUB_TOKEN=github-token -- gh api /user
 ```
 
-`vault run` puts the secret into the child command's environment and redacts it from
+`aihsm run` puts the secret into the child command's environment and redacts it from
 everything that command prints. If the command echoes the value in a debug line, an error,
 or a full `printenv` dump, it comes back as `****`, so the raw key does not land in the
 transcript Claude reads. This holds even when several stored secrets overlap each other or a
@@ -86,23 +88,23 @@ value is split across the output stream. The one thing it cannot catch is a valu
 command transforms before printing it (base64-encoding it, for example); the accompanying
 skill still tells the model never to echo a secret, as a second layer.
 
-If `vault` is not found after install (a PATH issue), run it as a module instead:
+If `aihsm` is not found after install (a PATH issue), run it as a module instead:
 
 ```bash
-python -m secret_harness.vault list
+python -m aihsm.cli list
 ```
 
 List what is stored, by name only. This checks your OS vault directly, so if you remove an
-entry in your OS credential manager, `vault list` stops showing it:
+entry in your OS credential manager, `aihsm list` stops showing it:
 
 ```bash
-vault list
+aihsm list
 ```
 
 Remove an entry:
 
 ```bash
-vault rm github-token
+aihsm rm github-token
 ```
 
 ## Using a stored secret in a Claude Code prompt
@@ -110,21 +112,21 @@ vault rm github-token
 This is the part that changes your habit. You never paste the key into the chat. You refer
 to it by the name you gave it, and let Claude pull it from the vault for you.
 
-Say you stored a token with `vault put github-token`. In a prompt, you just name it:
+Say you stored a token with `aihsm put github-token`. In a prompt, you just name it:
 
 > Use my github-token from the vault to list my GitHub repositories.
 
-Claude runs the command through `vault run`, which reads the secret from the OS vault,
+Claude runs the command through `aihsm run`, which reads the secret from the OS vault,
 puts it into that command's environment, and masks it out of the output:
 
 ```bash
-vault run --set GITHUB_TOKEN=github-token -- gh api /user/repos
+aihsm run --set GITHUB_TOKEN=github-token -- gh api /user/repos
 ```
 
 `GITHUB_TOKEN` is the environment variable the command expects; `github-token` is the name
 you stored it under. The value never appears in your message, in Claude's reply, or in the
 command's output. The accompanying skill teaches Claude these rules, so it reaches for
-`vault run` and refers to secrets by name on its own. If you forget and paste the raw key,
+`aihsm run` and refers to secrets by name on its own. If you forget and paste the raw key,
 the hook blocks the message before it reaches Claude.
 
 ## How detection works
@@ -143,7 +145,7 @@ same string again.
 
 ## The log
 
-The tool keeps a small log at `~/.claude/secret-harness/logs/` so you can see what happened
+The tool keeps a small log at `~/.claude/aihsm/logs/` so you can see what happened
 when something goes wrong: a blocked key (by type, never the value), a stored or used entry
 (by name), an error. It never records a secret value, the prompt text, or a matched string.
 The log cleans up after itself: it rolls over at about 1 MB and keeps four old files, so it
@@ -163,12 +165,12 @@ bash uninstall.sh
 ```
 
 This removes the hook and the skill and uninstalls the package. It does not touch your OS
-credential vault: anything you stored with `vault put` stays there until you remove it
-yourself with `vault rm` or your OS credential manager.
+credential vault: anything you stored with `aihsm put` stays there until you remove it
+yourself with `aihsm rm` or your OS credential manager.
 
 ## What this does not do
 
-Claude-Secret-Harness protects future use. It cannot undo exposure that already happened.
+aihsm protects future use. It cannot undo exposure that already happened.
 If a key was typed into a chat before this tool was installed, or before a detection rule
 existed to catch its shape, that key is still compromised and still needs to be rotated at
 the provider. The hook is a guard against the next mistake, not a cleanup crew for the

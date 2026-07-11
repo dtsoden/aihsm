@@ -3,15 +3,15 @@ import sys
 from pathlib import Path
 from typing import Tuple
 
-from secret_harness import log, messages
-from secret_harness.allowlist import AllowList, get_or_create_salt
-from secret_harness.patterns import find_secrets
+from aihsm import log, messages
+from aihsm.allowlist import AllowList, get_or_create_salt
+from aihsm.patterns import find_secrets
 
 BYPASS_TOKEN = "!secret-ok"
 
 
 def _default_config_dir():
-    return Path.home() / ".claude" / "secret-harness"
+    return Path.home() / ".claude" / "aihsm"
 
 
 def _suggested_name(rule):
