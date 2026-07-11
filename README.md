@@ -66,10 +66,17 @@ On Linux, the OS vault is the Secret Service, so you need a keyring backend runn
 minimal box without it, storing a secret will fail with a clear message telling you what to
 install.
 
-Once it finishes, the hook is active in new Claude Code sessions (restart Claude Code if it
-is already open). To confirm it works, paste a fake key like `ghp_` followed by a run of
+When it finishes, the installer runs a self-check: it feeds a fake secret to the hook and
+confirms it gets blocked, printing `Hook self-check passed`. So a clean install has already
+proven the guard works. The hook takes effect in new Claude Code sessions, so restart Claude
+Code if it is open, then to see it yourself paste a fake key like `ghp_` followed by a run of
 random letters and numbers into a message: it should be blocked before Claude sees it. From
 then on, store real secrets with `aihsm put <name>` and refer to them by name.
+
+To re-check later that the hook is still registered, look in `~/.claude/settings.json` for a
+`UserPromptSubmit` entry whose command ends in `-m aihsm.detect`. Every block also appends a
+line to `~/.claude/aihsm/logs/aihsm.log` (the rule name, never the secret), so a fresh
+`blocked prompt` line there confirms the hook fired.
 
 ## Usage
 

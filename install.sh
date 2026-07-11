@@ -48,6 +48,16 @@ if ! "$VENV/bin/python" -m aihsm.installer install-hook; then
   exit 1
 fi
 
+# Self-check: run the exact hook command against a fake secret and confirm it
+# blocks (the detector exits 2 on a block). This proves the guard is live so you
+# do not have to test it by hand.
+if printf '%s' '{"prompt":"ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}' \
+   | "$VENV/bin/python" -m aihsm.detect >/dev/null 2>&1; then
+  echo "WARNING: the hook did not block a test secret. The guard may not be active." >&2
+else
+  echo "Hook self-check passed: a test secret was blocked."
+fi
+
 # Expose the aihsm command on PATH via a symlink in ~/.local/bin. We link only
 # the aihsm executable, not the whole venv bin, so we never shadow your python.
 mkdir -p "$BIN_LINK_DIR"

@@ -20,6 +20,15 @@ Copy-Item "skills\aihsm\SKILL.md" (Join-Path $skillDir "SKILL.md") -Force
 python -m aihsm.installer install-hook
 if ($LASTEXITCODE -ne 0) { Write-Error "Hook install failed. Aborting."; exit 1 }
 
+# Self-check: run the exact hook command against a fake secret and confirm it
+# blocks (the detector exits 2 on a block), so you do not have to test by hand.
+'{"prompt":"ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}' | python -m aihsm.detect *> $null
+if ($LASTEXITCODE -eq 2) {
+  Write-Host "Hook self-check passed: a test secret was blocked."
+} else {
+  Write-Host "WARNING: the hook did not block a test secret (exit $LASTEXITCODE). The guard may not be active."
+}
+
 if (-not (Get-Command aihsm -ErrorAction SilentlyContinue)) {
   $scripts = (& python -c "import sysconfig; print(sysconfig.get_path('scripts','nt_user'))").Trim()
   if ($scripts -and (Test-Path $scripts)) {
