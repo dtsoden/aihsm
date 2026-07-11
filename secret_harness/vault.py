@@ -38,7 +38,7 @@ def cmd_run(args):
     if command and command[0] == "--":
         command = command[1:]
     if not command:
-        sys.stderr.write("No command given after --.\n")
+        sys.stderr.write("No command given. Usage: vault run --set VAR=NAME -- <command>\n")
         return 1
     return subprocess.run(command, env=env).returncode
 
@@ -82,7 +82,10 @@ def build_parser():
 
 
 def main(argv=None):
-    args = build_parser().parse_args(argv)
+    try:
+        args = build_parser().parse_args(argv)
+    except SystemExit as exc:
+        return int(exc.code) if exc.code is not None else 0
     return args.func(args)
 
 

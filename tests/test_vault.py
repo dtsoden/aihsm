@@ -62,3 +62,12 @@ def test_rm_deletes(wired, monkeypatch):
     vault.main(["put", "temp"])
     vault.main(["rm", "temp"])
     assert store.list_names(wired) == []
+
+
+def test_missing_subcommand_returns_int_not_raises(wired):
+    try:
+        rc = vault.main([])
+    except SystemExit:
+        pytest.fail("main([]) raised SystemExit instead of returning an int")
+    assert isinstance(rc, int)
+    assert rc != 0
