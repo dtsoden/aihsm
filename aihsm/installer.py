@@ -25,36 +25,70 @@ def _write(settings_path: Path, data: dict) -> None:
     settings_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
-def merge_hook(
-    settings_path: Path, command: str, timeout: int = 30, shell: Optional[str] = None
-) -> None:
+def merge_hook(settings_path: Path, command: str, timeout: int = 30) -> None:
+    # Claude Code requires each UserPromptSubmit entry to be a group object whose
+    # own "hooks" key is an array of command objects. A flat {type, command}
+    # object at the top level is rejected with a schema error. We also scrub any
+    # legacy flat entry of our own so re-running repairs a settings file that an
+    # older, buggy version of this installer left in the broken shape.
     if settings_path.exists():
         shutil.copy2(settings_path, settings_path.with_name(settings_path.name + ".bak"))
     data = _load(settings_path)
     hooks = data.setdefault("hooks", {})
-    entries = hooks.setdefault("UserPromptSubmit", [])
-    entry = {"type": "command", "command": command, "timeout": timeout}
-    if shell:
-        entry["shell"] = shell
-    for existing in entries:
-        if existing.get("command") == command:
-            existing.clear()
-            existing.update(entry)
-            break
-    else:
-        entries.append(entry)
+    existing = hooks.get("UserPromptSubmit")
+    if not isinstance(existing, list):
+        existing = []
+
+    cleaned = []
+    for entry in existing:
+        if not isinstance(entry, dict):
+            cleaned.append(entry)
+            continue
+        # Drop our own legacy flat entry (old broken format).
+        if entry.get("type") == "command" and entry.get("command") == command:
+            continue
+        # Drop any group that already holds our command; we re-add a fresh one.
+        sub = entry.get("hooks")
+        if isinstance(sub, list) and any(
+            isinstance(h, dict) and h.get("command") == command for h in sub
+        ):
+            continue
+        cleaned.append(entry)
+
+    cleaned.append({"hooks": [{"type": "command", "command": command, "timeout": timeout}]})
+    hooks["UserPromptSubmit"] = cleaned
     _write(settings_path, data)
 
 
 def remove_hook(settings_path: Path, command: str) -> None:
     data = _load(settings_path)
     hooks = data.get("hooks")
-    if not isinstance(hooks, dict) or "UserPromptSubmit" not in hooks:
+    if not isinstance(hooks, dict) or not isinstance(hooks.get("UserPromptSubmit"), list):
         return
     if settings_path.exists():
         shutil.copy2(settings_path, settings_path.with_name(settings_path.name + ".bak"))
-    entries = hooks["UserPromptSubmit"]
-    hooks["UserPromptSubmit"] = [e for e in entries if e.get("command") != command]
+    result = []
+    for entry in hooks["UserPromptSubmit"]:
+        if not isinstance(entry, dict):
+            result.append(entry)
+            continue
+        # Drop our own legacy flat entry.
+        if entry.get("type") == "command" and entry.get("command") == command:
+            continue
+        sub = entry.get("hooks")
+        if isinstance(sub, list):
+            kept = [
+                h for h in sub
+                if not (isinstance(h, dict) and h.get("command") == command)
+            ]
+            if not kept:
+                continue  # group emptied by the removal, drop the whole group
+            new_entry = dict(entry)
+            new_entry["hooks"] = kept
+            result.append(new_entry)
+        else:
+            result.append(entry)
+    hooks["UserPromptSubmit"] = result
     _write(settings_path, data)
 
 
