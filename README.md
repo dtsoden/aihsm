@@ -20,6 +20,9 @@ Claude at all. You get a message back telling you to rotate the exposed key and 
 new one in your operating system's credential vault (Windows Credential Manager, macOS
 Keychain, or the Linux Secret Service).
 
+aihsm is not the only tool in this space. For an honest look at how it stacks up against the
+alternatives, with the pros and cons of each, see [how aihsm compares](#how-aihsm-compares).
+
 ## The core policy
 
 * Secrets get into the system only through `aihsm put`, from a hidden prompt, never by
@@ -189,3 +192,44 @@ If a key was typed into a chat before this tool was installed, or before a detec
 existed to catch its shape, that key is still compromised and still needs to be rotated at
 the provider. The hook is a guard against the next mistake, not a cleanup crew for the
 last one.
+
+## How aihsm compares
+
+Plenty of tools touch this problem, and each is good at what it was built for. Here is an
+honest snapshot of where aihsm sits next to the main alternatives, as of July 2026.
+
+| Capability | sensitive-canary | vaultry / claude-secrets | 1Password op run | Doppler | aihsm |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| Blocks keys pasted into chat | Yes | No | No | No | Yes |
+| Blocks the assistant reading keys from files | Yes | Partial | No | No | No |
+| Stores keys in the OS-native vault | No | Yes | Yes | No | Yes |
+| Masks keys in command output | n/a | Partial | Partial | No | Yes |
+| Cross-platform (Windows / macOS / Linux) | Yes | No | Yes | Yes | Yes |
+| Fully open source (MIT) | Yes | No | No | No | Yes |
+| Local, no cloud account | Yes | Yes | Partial | No | Yes |
+
+The tools, so you can judge for yourself:
+
+* [sensitive-canary](https://github.com/coo-quack/sensitive-canary) - Claude Code hooks with
+  strong detection (31 rules from gitleaks and TruffleHog) and a second hook that blocks the
+  assistant from reading `.env` files. Detection only; there is no vault behind it.
+* [vaultry / claude-secrets](https://glama.ai/mcp/servers/vaultry/claude-secrets) - an
+  encrypted store with a macOS Keychain master key and per-project allowlists. macOS only,
+  and source-available rather than fully open.
+* [1Password op run](https://developer.1password.com/docs/cli/secrets-environment-variables) -
+  mature, cross-platform, strong team features. Needs a paid account, and its usual env
+  injection can still leak the value into a chatty command's output.
+* [Doppler](https://www.doppler.com) - a cloud secret manager with runtime injection.
+  Cloud-hosted, account required, aimed at teams and CI.
+* [HashiCorp Vault](https://www.vaultproject.io) - the enterprise standard for secrets at
+  scale. Server software; heavy for one developer on a laptop.
+* [gitleaks](https://github.com/gitleaks/gitleaks) and
+  [TruffleHog](https://github.com/trufflesecurity/trufflehog) - the standard for finding
+  secrets already committed to git. A different door: they scan code at rest, not the live
+  chat channel.
+
+aihsm is deliberately the small one: a single free cross-platform MIT tool that keeps keys
+out of the chat and in your own OS vault, with no account and one command to install. It
+does not try to be enterprise data-loss prevention, and it does not scan every file the
+assistant reads. If that file-read path matters to you, sensitive-canary is the better
+answer there, and the two can run side by side.
