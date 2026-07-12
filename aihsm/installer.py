@@ -117,7 +117,29 @@ def main(argv: Optional[List[str]] = None) -> int:
         log.info("hook removed")
         sys.stdout.write("aihsm hook removed.\n")
         return 0
-    sys.stderr.write("Usage: python -m aihsm.installer [install-hook|uninstall-hook]\n")
+    if action == "selfcheck":
+        # Drive the detector through a subprocess so the test input is delivered
+        # as clean UTF-8 (shell string piping can mangle the encoding) and so the
+        # detector's stderr never trips a shell error-handling mode. The detector
+        # exits 2 when it blocks a secret.
+        import subprocess
+
+        result = subprocess.run(
+            [sys.executable, "-m", "aihsm.detect"],
+            input='{"prompt":"ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}',
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 2:
+            sys.stdout.write("Hook self-check passed: a test secret was blocked.\n")
+            return 0
+        sys.stdout.write(
+            "WARNING: the hook did not block a test secret (exit {0}).\n".format(result.returncode)
+        )
+        return 1
+    sys.stderr.write(
+        "Usage: python -m aihsm.installer [install-hook|uninstall-hook|selfcheck]\n"
+    )
     return 2
 
 
