@@ -10,10 +10,19 @@ A release is only correct when both move together, plus a matching git tag. Skip
 `pip install` user and a `/plugin install` user end up on different builds of the same number.
 
 - **PyPI** (`pip install aihsm`) reads `version` from `pyproject.toml`.
-- **Plugin marketplace** (`/plugin install aihsm@aihsm`) reads `version` from `.claude-plugin/plugin.json`.
+- **Self-hosted plugin marketplace** (`/plugin marketplace add dtsoden/aihsm` then
+  `/plugin install aihsm@aihsm`) reads `version` from `.claude-plugin/plugin.json`. This is live
+  now; anyone can add it straight from the repo with no approval.
 
 PyPI is immutable: you can never re-upload a version that already exists. Every release bumps
 the number.
+
+The **official Anthropic plugin directory** is a separate, third thing and is currently **on
+hold**: the submission account is pending approval (as of 2026-07-12). Its scaffolding already
+exists (`.claude-plugin/marketplace.json` and `plugin.json`), so nothing needs building. This
+release pipeline is deliberately blind to that approval. It ships to PyPI and the self-hosted
+marketplace every time and never waits on the official directory. Submitting there is a one-off
+manual step (see "Official directory" below), not part of cutting a release.
 
 ## Preconditions
 
@@ -23,6 +32,9 @@ the number.
   is missing, run `aihsm put pypi` before starting; never paste the token into the terminal.
 - Python 3 is on PATH. `python -m build --version` and `python -m twine --version` both work;
   if not, `python -m pip install --upgrade build twine`.
+- Claude Code is up to date, so `claude plugin validate` checks against Anthropic's current
+  manifest schema. The plugin manifest format changes over time under you; the validator is how
+  you catch it, so a stale CLI defeats the whole guard.
 
 ## Release steps
 
@@ -41,11 +53,21 @@ the number.
    python -m build
    ```
 
-4. **Validate before publishing:**
+4. **Validate before publishing (hard gate).** Both commands must pass. Do not publish if either
+   fails.
    ```bash
    python -m twine check dist/*
    claude plugin validate .
    ```
+   `claude plugin validate` checks `.claude-plugin/plugin.json` and `marketplace.json` against the
+   schema the installed Claude Code knows about. Anthropic changes that schema over time (new
+   required fields, renamed keys, stricter path rules). If the validator errors, or warns about an
+   unknown, missing, renamed, or deprecated field, STOP. Do not wave it through. Open the current
+   spec at https://code.claude.com/docs/en/plugin-marketplaces, compare the two manifest files
+   against the official examples in `anthropics/claude-plugins-official` and `anthropics/claude-code`,
+   edit them to match, and re-run until it passes clean. Never publish a manifest the current CLI
+   rejects: a bad manifest breaks `/plugin install` for everyone and gets an official-directory
+   submission bounced.
 
 5. **Publish to PyPI** with the token pulled from the vault and masked out of the output:
    ```bash
@@ -77,6 +99,20 @@ the number.
 9. **Clean up** the `build/` and `dist/` directories (both gitignored) so the next release
    starts from a clean tree.
 
+## Official directory (on hold)
+
+Submitting aihsm to Anthropic's official/community plugin directory is a separate, manual, one-time
+step, not part of cutting a release. It is currently blocked on account approval (pending as of
+2026-07-12). When the account is live:
+
+1. Confirm `claude plugin validate .` passes clean (step 4 already does this every release).
+2. Submit through the current Anthropic plugin submission flow. Confirm the URL in the docs first;
+   it has moved before. Approval pins the plugin to a commit SHA in
+   `anthropics/claude-plugins-community`.
+
+Until then, do nothing here. The self-hosted marketplace already lets anyone install, so the
+release pipeline never waits on this.
+
 ## Common mistakes
 
 | Mistake | Result | Fix |
@@ -87,3 +123,5 @@ the number.
 | Pasted the PyPI token to upload | Token in transcript, now burned | Use `aihsm run --set TWINE_PASSWORD=pypi` (step 5) |
 | Forgot to push the tag | GitHub has no `vX.Y.Z` tag | `git push origin vX.Y.Z` |
 | Published to PyPI but skipped `gh release create` | GitHub Releases page lags behind PyPI | Run step 7 every release |
+| Published a manifest the current CLI rejects | `/plugin install` breaks; official submission bounced | Treat `claude plugin validate` as a hard gate (step 4); fix against the current spec |
+| Held a release waiting on official-directory approval | pip and plugin users get nothing | The pipeline is blind to that approval; ship anyway |
