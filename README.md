@@ -98,9 +98,15 @@ PATH, and you restart Claude Code once so the hook takes effect in a new session
 
 There is one difference from the script install. The plugin gives you the guard and the skill,
 not the vault commands. `aihsm put`, `aihsm run`, and `aihsm list` come from the Python package,
-which the plugin does not install. Run the install script above to get them; the guard and the
-CLI are happy to sit side by side. If you only want the paste guard and you keep your secrets
-in your OS credential manager by hand, the plugin on its own is enough.
+which the plugin does not install. The quickest way to add them is:
+
+```bash
+pip install aihsm
+```
+
+or run the install script above, which does the same and also wires the hook for a script-only
+setup. The guard and the CLI are happy to sit side by side. If you only want the paste guard and
+you keep your secrets in your OS credential manager by hand, the plugin on its own is enough.
 
 ## Usage
 
