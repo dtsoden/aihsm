@@ -1,0 +1,10 @@
+{
+  "name": "aihsm",
+  "version": "0.1.0",
+  "description": "Blocks secrets typed into Claude Code and stores them in the OS credential vault.",
+  "author": {
+    "name": "David Soden"
+  },
+  "homepage": "https://github.com/dtsoden/aihsm",
+  "license": "MIT"
+}

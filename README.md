@@ -81,6 +81,27 @@ To re-check later that the hook is still registered, look in `~/.claude/settings
 line to `~/.claude/aihsm/logs/aihsm.log` (the rule name, never the secret), so a fresh
 `blocked prompt` line there confirms the hook fired.
 
+### Install as a Claude Code plugin
+
+The install script is one way in. The other is the Claude Code plugin, if you would rather
+enable it from inside Claude Code than run a script. From a Claude Code session:
+
+```
+/plugin marketplace add dtsoden/aihsm
+/plugin install aihsm@aihsm
+```
+
+This registers the same `UserPromptSubmit` guard and copies the same skill, so pasted secrets
+get blocked the moment the plugin is enabled. The detector is pure Python standard library, so
+it runs straight from the plugin with nothing else to install. Python 3 still has to be on your
+PATH, and you restart Claude Code once so the hook takes effect in a new session.
+
+There is one difference from the script install. The plugin gives you the guard and the skill,
+not the vault commands. `aihsm put`, `aihsm run`, and `aihsm list` come from the Python package,
+which the plugin does not install. Run the install script above to get them; the guard and the
+CLI are happy to sit side by side. If you only want the paste guard and you keep your secrets
+in your OS credential manager by hand, the plugin on its own is enough.
+
 ## Usage
 
 Store a secret. You give the name on the command line; the value is never passed as an

@@ -1,0 +1,14 @@
+{
+  "name": "aihsm",
+  "description": "aihsm: keep API keys out of Claude Code and in your OS credential vault.",
+  "owner": {
+    "name": "David Soden"
+  },
+  "plugins": [
+    {
+      "name": "aihsm",
+      "source": "./",
+      "description": "Blocks secrets typed into Claude Code and stores them in the OS credential vault."
+    }
+  ]
+}
