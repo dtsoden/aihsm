@@ -45,7 +45,18 @@ alternatives, with the pros and cons of each, see [how aihsm compares](#how-aihs
 
 ## Install
 
-Python 3 is required. Pick the line for your OS:
+Python 3 is required. If you do not have it, install it first from
+[python.org](https://www.python.org/downloads/), then confirm with `python --version` (or
+`python3 --version` on macOS/Linux).
+
+The install scripts live in this repo, so clone it and change into the folder first:
+
+```bash
+git clone https://github.com/dtsoden/aihsm.git
+cd aihsm
+```
+
+Then run the line for your OS:
 
 ```bash
 # macOS / Linux
