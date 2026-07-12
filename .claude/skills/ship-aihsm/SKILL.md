@@ -61,14 +61,20 @@ the number.
    git push origin vX.Y.Z
    ```
 
-7. **Verify the new version is live:**
+7. **Create the GitHub release** so the repo's Releases page matches PyPI (`gh` active account
+   must be `dtsoden`). Write short notes covering what changed:
+   ```bash
+   gh release create vX.Y.Z --title "aihsm X.Y.Z" --notes "..."
+   ```
+
+8. **Verify the new version is live:**
    ```bash
    python -m pip index versions aihsm   # should list X.Y.Z as latest
    ```
    Plugin users pick it up the next time they update the marketplace and plugin from the
    `/plugin` menu. PyPI users get it with `pip install --upgrade aihsm`.
 
-8. **Clean up** the `build/` and `dist/` directories (both gitignored) so the next release
+9. **Clean up** the `build/` and `dist/` directories (both gitignored) so the next release
    starts from a clean tree.
 
 ## Common mistakes
@@ -79,4 +85,5 @@ the number.
 | Reused an existing version number | `twine upload` 400s ("File already exists") | Bump higher; you cannot overwrite a PyPI version |
 | Ran `python -m build` with a stale `build/` present | `No module named build` | `rm -rf build dist` first (step 3) |
 | Pasted the PyPI token to upload | Token in transcript, now burned | Use `aihsm run --set TWINE_PASSWORD=pypi` (step 5) |
-| Forgot to push the tag | GitHub release history has no `vX.Y.Z` | `git push origin vX.Y.Z` |
+| Forgot to push the tag | GitHub has no `vX.Y.Z` tag | `git push origin vX.Y.Z` |
+| Published to PyPI but skipped `gh release create` | GitHub Releases page lags behind PyPI | Run step 7 every release |
