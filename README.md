@@ -45,11 +45,27 @@ alternatives, with the pros and cons of each, see [how aihsm compares](#how-aihs
 
 ## Install
 
-Python 3 is required. If you do not have it, install it first from
-[python.org](https://www.python.org/downloads/), then confirm with `python --version` (or
-`python3 --version` on macOS/Linux).
+There are three ways to install aihsm, and they do not all give you the same thing. Pick from
+this table first, then follow that one section.
 
-The install scripts live in this repo, so clone it and change into the folder first:
+| | Paste guard (the hook) | Skill | Vault CLI (`put` / `run` / `list` / `rm`) |
+| --- | :---: | :---: | :---: |
+| **1. Install script** (recommended) | yes | yes | yes |
+| **2. Claude Code plugin** | yes | yes | no |
+| **3. pipx / pip** | no | no | yes |
+
+The install script is the only single path that gives you everything. The plugin is the quickest
+way to get the guard, but it does not include the `aihsm` command. pipx installs the `aihsm`
+command and nothing else, so on its own it protects nothing; use it to add the CLI on top of a
+plugin install, or if the vault is all you want.
+
+All three need Python 3. If you do not have it, install it from
+[python.org](https://www.python.org/downloads/), or `brew install python` on macOS, then confirm
+with `python3 --version` (`python --version` on Windows).
+
+### Option 1: Install script (recommended, gives you everything)
+
+The scripts live in this repo, so clone it and change into the folder first:
 
 ```bash
 git clone https://github.com/dtsoden/aihsm.git
@@ -68,52 +84,81 @@ bash install.sh
 .\install.ps1
 ```
 
-The installer checks that Python 3 is present, installs the package and the `aihsm` CLI,
-registers the `UserPromptSubmit` hook in your Claude Code settings (backing up the existing
-settings file first, never overwriting your other hooks), copies the accompanying skill so
-Claude knows the rules around it, and adds the `aihsm` command to your PATH. If Python is
-missing or the install fails, it stops and tells you what to fix rather than half-installing.
-The same steps run on Windows, macOS, and Linux.
+The installer checks that Python 3 is present, installs the package and the `aihsm` CLI into a
+dedicated environment of its own, registers the `UserPromptSubmit` hook in your Claude Code
+settings (backing up the existing settings file first, never overwriting your other hooks),
+copies the accompanying skill so Claude knows the rules around it, and adds the `aihsm` command
+to your PATH. If Python is missing or the install fails, it stops and tells you what to fix
+rather than half-installing. The same steps run on Windows, macOS, and Linux.
 
-On Linux, the OS vault is the Secret Service, so you need a keyring backend running
-(GNOME Keyring or KWallet). Most desktop Linux installs already have one. On a headless or
-minimal box without it, storing a secret will fail with a clear message telling you what to
-install.
+**Upgrade:**
 
-When it finishes, the installer runs a self-check: it feeds a fake secret to the hook and
-confirms it gets blocked, printing `Hook self-check passed`. So a clean install has already
-proven the guard works. The hook takes effect in new Claude Code sessions, so restart Claude
-Code if it is open, then to see it yourself paste a fake key like `ghp_` followed by a run of
-random letters and numbers into a message: it should be blocked before Claude sees it. From
-then on, store real secrets with `aihsm put <name>` and refer to them by name.
+```bash
+git pull
+bash install.sh          # or .\install.ps1 on Windows
+```
 
-To re-check later that the hook is still registered, look in `~/.claude/settings.json` for a
-`UserPromptSubmit` entry whose command ends in `-m aihsm.detect`. Every block also appends a
-line to `~/.claude/aihsm/logs/aihsm.log` (the rule name, never the secret), so a fresh
-`blocked prompt` line there confirms the hook fired.
+**Uninstall:**
 
-### Install as a Claude Code plugin
+```bash
+bash uninstall.sh        # macOS / Linux
+```
 
-The install script is one way in. The other is the Claude Code plugin, if you would rather
-enable it from inside Claude Code than run a script. From a Claude Code session:
+```powershell
+.\uninstall.ps1          # Windows
+```
+
+This removes the hook and the skill and uninstalls the package. It does not touch your OS
+credential vault: anything you stored with `aihsm put` stays there until you remove it yourself
+with `aihsm rm` or your OS credential manager.
+
+### Option 2: Claude Code plugin (guard and skill, no CLI)
+
+Use this if you would rather enable it from inside Claude Code than run a script. From a Claude
+Code session:
 
 ```
 /plugin marketplace add dtsoden/aihsm
 /plugin install aihsm@aihsm
 ```
 
-This registers the same `UserPromptSubmit` guard and copies the same skill, so pasted secrets
-get blocked the moment the plugin is enabled. The detector is pure Python standard library, so
-it runs straight from the plugin with nothing else to install. Python 3 still has to be on your
-PATH, and you restart Claude Code once so the hook takes effect in a new session.
+Then run `/reload-plugins`, or restart Claude Code, so the hook takes effect.
 
-There is one difference from the script install. The plugin gives you the guard and the skill,
-not the vault commands. `aihsm put`, `aihsm run`, and `aihsm list` come from the Python package,
-which the plugin does not install. Add them with pipx, which installs the CLI into its own
-isolated environment and puts `aihsm` on your PATH:
+This registers the same `UserPromptSubmit` guard and the same skill, so pasted secrets get
+blocked the moment the plugin is enabled. The detector is pure Python standard library, so it
+runs straight from the plugin with nothing else to install. Python 3 still has to be on your PATH.
+
+**What you do not get:** the vault commands. `aihsm put`, `aihsm run`, `aihsm list`, and
+`aihsm rm` come from the Python package, which the plugin does not install. If you want them, add
+Option 3 on top of this; the guard and the CLI sit side by side happily. If you only want the
+paste guard and you manage secrets in your OS credential manager by hand, the plugin alone is
+enough.
+
+**Upgrade:** third-party marketplaces do not auto-update by default, so pull new versions
+yourself:
+
+```
+/plugin marketplace update aihsm
+/reload-plugins
+```
+
+To have it update itself instead, run `/plugin`, go to the **Marketplaces** tab, select `aihsm`,
+and choose **Enable auto-update**.
+
+**Uninstall:**
+
+```
+/plugin uninstall aihsm@aihsm
+```
+
+### Option 3: pipx (the vault CLI only, no guard)
+
+This installs the `aihsm` command and nothing else. It does **not** register the hook, so by
+itself it blocks nothing. Use it to add the vault commands to a plugin install, or if the vault
+is all you want.
 
 ```bash
-# macOS (Homebrew)
+# macOS
 brew install pipx
 pipx ensurepath
 pipx install aihsm
@@ -134,18 +179,49 @@ pip install aihsm
 Open a new terminal after `pipx ensurepath` so the PATH change takes effect.
 
 On macOS, use pipx rather than `pip install aihsm`. Homebrew's Python is marked externally
-managed (PEP 668), so a plain `pip install` into it fails with `error: externally-managed-environment`.
-That is not a problem with your Mac or your chip; it is Homebrew protecting its Python from
-being modified. pipx sidesteps it by giving the tool its own environment, which is the right
-way to install a command-line tool anyway. `pip install aihsm` is still fine on Windows, or
-inside a virtualenv you made yourself.
+managed (PEP 668), so a plain `pip install` into it fails with
+`error: externally-managed-environment`. That is not a problem with your Mac, your chip, or your
+OS version; it is Homebrew protecting its Python from being modified. pipx sidesteps it by giving
+the tool its own environment, which is the right way to install a command-line tool anyway.
+`pip install aihsm` is still fine on Windows, or inside a virtualenv you made yourself.
 
-Running the install script above is the other option; it does the same thing and also wires the
-hook for a script-only setup. The guard and the CLI are happy to sit side by side. If you only
-want the paste guard and you keep your secrets in your OS credential manager by hand, the plugin
-on its own is enough.
+**Upgrade:**
+
+```bash
+pipx upgrade aihsm       # or: pip install --upgrade aihsm
+```
+
+**Uninstall:**
+
+```bash
+pipx uninstall aihsm     # or: pip uninstall aihsm
+```
+
+Uninstalling leaves your stored secrets alone. They live in your OS vault, not in the package.
+
+### Check that the guard is working
+
+The install script finishes with a self-check: it feeds a fake secret to the hook and confirms it
+gets blocked, printing `Hook self-check passed`. So a clean script install has already proven the
+guard works.
+
+The hook takes effect in new Claude Code sessions, so restart Claude Code if it is open. To see
+it for yourself, paste a fake key like `ghp_` followed by a run of random letters and numbers
+into a message. It should be blocked before Claude sees it.
+
+To re-check later that the hook is still registered: for a script install, look in
+`~/.claude/settings.json` for a `UserPromptSubmit` entry whose command ends in `-m aihsm.detect`;
+for a plugin install, check the `/plugin` menu. Every block also appends a line to
+`~/.claude/aihsm/logs/aihsm.log` (the rule name, never the secret), so a fresh `blocked prompt`
+line there confirms the hook fired.
+
+On Linux, the OS vault is the Secret Service, so you need a keyring backend running (GNOME
+Keyring or KWallet). Most desktop Linux installs already have one. On a headless or minimal box
+without it, storing a secret will fail with a clear message telling you what to install.
 
 ## Usage
+
+These commands come from the Python package, so you have them after Option 1 or Option 3.
 
 Store a secret. You give the name on the command line; the value is never passed as an
 argument (that would leave it in your shell history). You are prompted for the value twice,
@@ -232,22 +308,6 @@ when something goes wrong: a blocked key (by type, never the value), a stored or
 The log cleans up after itself: it rolls over at about 1 MB and keeps four old files, so it
 stays around 5 MB at most and can never grow into the hundreds of megabytes. To turn it off,
 set the environment variable `AIHSM_NO_LOG` to any value.
-
-## Uninstall
-
-```bash
-# macOS / Linux
-bash uninstall.sh
-```
-
-```powershell
-# Windows
-.\uninstall.ps1
-```
-
-This removes the hook and the skill and uninstalls the package. It does not touch your OS
-credential vault: anything you stored with `aihsm put` stays there until you remove it
-yourself with `aihsm rm` or your OS credential manager.
 
 ## What this does not do
 
