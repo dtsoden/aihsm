@@ -109,15 +109,41 @@ PATH, and you restart Claude Code once so the hook takes effect in a new session
 
 There is one difference from the script install. The plugin gives you the guard and the skill,
 not the vault commands. `aihsm put`, `aihsm run`, and `aihsm list` come from the Python package,
-which the plugin does not install. The quickest way to add them is:
+which the plugin does not install. Add them with pipx, which installs the CLI into its own
+isolated environment and puts `aihsm` on your PATH:
 
 ```bash
+# macOS (Homebrew)
+brew install pipx
+pipx ensurepath
+pipx install aihsm
+```
+
+```bash
+# Linux
+python3 -m pip install --user pipx
+pipx ensurepath
+pipx install aihsm
+```
+
+```powershell
+# Windows
 pip install aihsm
 ```
 
-or run the install script above, which does the same and also wires the hook for a script-only
-setup. The guard and the CLI are happy to sit side by side. If you only want the paste guard and
-you keep your secrets in your OS credential manager by hand, the plugin on its own is enough.
+Open a new terminal after `pipx ensurepath` so the PATH change takes effect.
+
+On macOS, use pipx rather than `pip install aihsm`. Homebrew's Python is marked externally
+managed (PEP 668), so a plain `pip install` into it fails with `error: externally-managed-environment`.
+That is not a problem with your Mac or your chip; it is Homebrew protecting its Python from
+being modified. pipx sidesteps it by giving the tool its own environment, which is the right
+way to install a command-line tool anyway. `pip install aihsm` is still fine on Windows, or
+inside a virtualenv you made yourself.
+
+Running the install script above is the other option; it does the same thing and also wires the
+hook for a script-only setup. The guard and the CLI are happy to sit side by side. If you only
+want the paste guard and you keep your secrets in your OS credential manager by hand, the plugin
+on its own is enough.
 
 ## Usage
 
