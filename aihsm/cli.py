@@ -158,6 +158,18 @@ def build_parser():
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    # -v as well as -V: there is no verbose flag to collide with, and -v is
+    # what people reach for first.
+    import aihsm
+
+    parser.add_argument(
+        "-v",
+        "-V",
+        "--version",
+        action="version",
+        version="aihsm " + aihsm.__version__,
+        help="Show the installed version and exit.",
+    )
     sub = parser.add_subparsers(dest="cmd", metavar="{put,run,list,rm}")
 
     p_put = sub.add_parser("put", help="Store a secret via a hidden prompt.")

@@ -207,3 +207,23 @@ def test_help_flag_returns_zero(wired, capsys):
     out = capsys.readouterr().out
     assert rc == 0
     assert "usage: aihsm" in out
+
+
+# --- Version reporting ---
+
+def test_version_flags_report_the_version(capsys):
+    for flag in ("--version", "-V", "-v"):
+        code = cli.main([flag])
+        out = capsys.readouterr().out
+        assert code == 0, "%s exited %s" % (flag, code)
+        assert "aihsm" in out, "%s printed no version: %r" % (flag, out)
+
+
+def test_version_is_not_hardcoded_and_matches_package_metadata():
+    # Regression: __init__ used to hardcode __version__, which silently drifted
+    # from pyproject.toml (it said 0.1.0 after 0.1.1 shipped). The version must
+    # come from installed package metadata so pyproject stays the only source.
+    import aihsm
+    from importlib.metadata import version
+
+    assert aihsm.__version__ == version("aihsm")

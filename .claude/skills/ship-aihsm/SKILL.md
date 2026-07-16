@@ -45,6 +45,11 @@ manual step (see "Official directory" below), not part of cutting a release.
    - `pyproject.toml` -> `version = "X.Y.Z"`
    - `.claude-plugin/plugin.json` -> `"version": "X.Y.Z"`
 
+   Those are the only two. `aihsm.__version__` derives from installed package metadata, so it
+   follows `pyproject.toml` on its own. Never hardcode it back into `aihsm/__init__.py`: it used
+   to be a constant and silently drifted, still reporting 0.1.0 after 0.1.1 shipped. A test
+   (`test_version_is_not_hardcoded_and_matches_package_metadata`) fails if anyone re-introduces it.
+
 3. **Build clean.** The repo leaves a local `build/` directory behind, and its mere presence
    makes `python -m build` fail with `No module named build` (the folder shadows the build
    tool). Always wipe it first:

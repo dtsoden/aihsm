@@ -264,6 +264,12 @@ Remove an entry:
 aihsm rm github-token
 ```
 
+Check which version you have, which is the quickest way to confirm an upgrade landed:
+
+```bash
+aihsm --version
+```
+
 ## Using a stored secret in a Claude Code prompt
 
 This is the part that changes your habit. You never paste the key into the chat. You refer
