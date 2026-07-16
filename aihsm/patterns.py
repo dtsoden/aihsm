@@ -26,6 +26,9 @@ _KNOWN = [
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9+/=_\-]+")
 
+# A run of characters with no delimiter breaking it up.
+_ALNUM_RUN_RE = re.compile(r"[A-Za-z0-9]+")
+
 
 def shannon_entropy(s: str) -> float:
     if not s:
@@ -35,7 +38,22 @@ def shannon_entropy(s: str) -> float:
     return -sum((c / n) * math.log2(c / n) for c in counts.values())
 
 
-def find_secrets(text, entropy_threshold=3.5, min_entropy_len=20) -> List[Finding]:
+def densest_run(value: str) -> str:
+    """Return the longest unbroken alphanumeric run inside a candidate.
+
+    Entropy must be judged on this, never on the whole candidate. _TOKEN_RE
+    includes "/" and "-", so a URL or file path arrives here glued into one
+    string ("com/docs/en/plugin-marketplaces"). Shannon entropy measures
+    character diversity, not randomness, and a long path mixing words, digits,
+    slashes and dashes scores as high as a real key. Judging the densest run
+    instead separates the two: a secret is one dense random run, while paths,
+    slugs and UUIDs are short words joined by delimiters.
+    """
+    runs = _ALNUM_RUN_RE.findall(value)
+    return max(runs, key=len) if runs else ""
+
+
+def find_secrets(text, entropy_threshold=3.5, min_entropy_len=16) -> List[Finding]:
     findings = []
     seen = set()
     for rule, pattern in _KNOWN:
@@ -53,7 +71,8 @@ def find_secrets(text, entropy_threshold=3.5, min_entropy_len=20) -> List[Findin
         # glued to surrounding context (e.g. KEY=secret) is not double-counted.
         if any(known in value for known in seen):
             continue
-        if len(value) >= min_entropy_len and shannon_entropy(value) >= entropy_threshold:
+        candidate = densest_run(value)
+        if len(candidate) >= min_entropy_len and shannon_entropy(candidate) >= entropy_threshold:
             seen.add(value)
             findings.append(Finding(value, "high-entropy"))
     return findings

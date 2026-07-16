@@ -294,6 +294,13 @@ API keys, Stripe live keys, JWTs, PEM private key blocks, and connection strings
 embedded password. Anything that does not match a known shape is still checked against a
 high-entropy catch-all, so an unfamiliar-looking token gets flagged too.
 
+The catch-all looks at the longest unbroken run of characters in what you paste, not the
+whole string. A secret is one dense run of random characters. A URL, a file path, or a UUID
+is a handful of short words and groups joined by slashes and dashes, so it does not qualify
+no matter how long it is. That is why you can paste
+`https://portal.azure.com/#/resource/subscriptions/550e8400-e29b-41d4-a716-446655440000/overview`
+without tripping the guard, while a real key inside a URL still gets caught.
+
 Sometimes the match is wrong: a long build hash, a random test fixture, something that
 just happens to look like a secret. If that happens, re-send the exact same message but
 start it with `!secret-ok`. That one message goes through, and the tool remembers the
