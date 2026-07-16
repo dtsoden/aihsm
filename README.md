@@ -294,24 +294,30 @@ the hook blocks the message before it reaches Claude.
 
 ## How detection works
 
-Every prompt is checked against a set of known secret shapes before it leaves your
-machine: Anthropic and OpenAI keys, GitHub tokens, AWS access keys, Slack tokens, Google
-API keys, Stripe live keys, JWTs, PEM private key blocks, and connection strings with an
-embedded password. Anything that does not match a known shape is still checked against a
-high-entropy catch-all, so an unfamiliar-looking token gets flagged too.
+Detection works two ways, and neither is a general "looks random" guess.
 
-The catch-all looks at the longest unbroken run of characters in what you paste, not the
-whole string. A secret is one dense run of random characters. A URL, a file path, or a UUID
-is a handful of short words and groups joined by slashes and dashes, so it does not qualify
-no matter how long it is. That is why you can paste
-`https://portal.azure.com/#/resource/subscriptions/550e8400-e29b-41d4-a716-446655440000/overview`
-without tripping the guard, while a real key inside a URL still gets caught.
+**Known shapes.** Anthropic and OpenAI keys, GitHub tokens and PATs, AWS access keys, Slack
+tokens, Google API keys, Stripe live keys, JWTs, PEM private key blocks, and connection
+strings with an embedded password. These have distinctive prefixes, so they are caught even
+when pasted bare with no context.
 
-Sometimes the match is wrong: a long build hash, a random test fixture, something that
-just happens to look like a secret. If that happens, re-send the exact same message but
-start it with `!secret-ok`. That one message goes through, and the tool remembers the
-flagged string (as a salted hash, not the raw value) so it will not nag you about that
-same string again.
+**Credential context.** A value is flagged when the thing it is assigned to says it is a
+credential: `AWS_SECRET_ACCESS_KEY=...`, `"apiKey": "..."`, `client_secret: ...`,
+`DATABASE_PASSWORD=...`. This catches keys no prefix rule knows about, and it catches wordy
+passwords that no randomness test would ever flag.
+
+There is deliberately **no general high-entropy catch-all**. Earlier versions had one and it
+did not work. Entropy measures character diversity, not randomness, and at real-world lengths
+a camelCase name (`convertFieldsToString`, 3.82), a random id (`mI9cYRKBnsIGQv4o`, 3.88) and a
+hex digest (4.0 maximum, because hex has only sixteen symbols) all sit in the same narrow band.
+No threshold separates them. Every setting either blocked ordinary JSON keys, URLs and git
+SHAs, or went blind to real keys. Naming solves what entropy cannot: `AWS_SECRET_ACCESS_KEY=`
+is a credential whatever its entropy, and `convertFieldsToString` is not, whatever its entropy.
+
+If the match is ever wrong, re-send the same message starting with `secret-ok` (no leading
+punctuation; a leading `!` is Claude Code's own bash prefix and would run your message as a
+shell command). That message goes through, and the tool remembers the flagged string as a
+salted hash, not the raw value, so it will not nag you about it again.
 
 ## The log
 
@@ -329,6 +335,13 @@ If a key was typed into a chat before this tool was installed, or before a detec
 existed to catch its shape, that key is still compromised and still needs to be rotated at
 the provider. The hook is a guard against the next mistake, not a cleanup crew for the
 last one.
+
+It does not catch a bare secret pasted with no context from a provider it has no rule for.
+If you paste `kD8fH3jQ7pL5xZ2vB6nM4tYrW9gC1sA0` on its own, with nothing naming it, it goes
+through. That string is indistinguishable from a session id, a build hash, or a database key,
+and the versions that tried to guess blocked all of those too, constantly. Label it
+(`API_TOKEN=...`) and it is caught. This is a deliberate trade: a guard that cries wolf on
+every URL and config file gets uninstalled, and then it protects nothing at all.
 
 ## How aihsm compares
 

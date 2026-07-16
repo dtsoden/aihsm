@@ -18,7 +18,9 @@ def test_secret_prompt_blocks(tmp_path):
 
 
 def test_bypass_allows_and_remembers(tmp_path):
-    secret_line = "!secret-ok ghp_abcdefghijklmnopqrstuvwxyz0123456789"
+    # No leading "!": Claude Code eats a leading "!" as its bash prefix, so the
+    # old "!secret-ok" was impossible to actually send.
+    secret_line = "secret-ok ghp_abcdefghijklmnopqrstuvwxyz0123456789"
     code, msg = detect.run({"prompt": secret_line}, tmp_path)
     assert code == 0
     # same string without bypass now passes, because it was remembered
@@ -36,7 +38,10 @@ def test_missing_prompt_key_allows(tmp_path):
 def test_secret_detected_message_contains_steps():
     m = secret_detected_message("github-token", "github-token")
     assert "Revoke or rotate" in m
-    assert "!secret-ok" in m
+    assert "secret-ok" in m
+    # Must never instruct a leading "!": Claude Code would run it as bash and
+    # the user would be trapped with no working escape hatch.
+    assert "!secret-ok" not in m
 
 
 def test_guard_failure_message_has_uninstall():

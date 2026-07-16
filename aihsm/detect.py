@@ -7,7 +7,11 @@ from aihsm import log, messages
 from aihsm.allowlist import AllowList, get_or_create_salt
 from aihsm.patterns import find_secrets
 
-BYPASS_TOKEN = "!secret-ok"
+# No leading "!". Claude Code treats a leading "!" as its own bash-mode prefix,
+# so "!secret-ok ..." was stripped and run as a shell command ("secret-ok:
+# command not found") and this hook never saw the message. The documented
+# escape hatch was impossible to type in the one program aihsm is built for.
+BYPASS_TOKEN = "secret-ok"
 
 
 def _default_config_dir():

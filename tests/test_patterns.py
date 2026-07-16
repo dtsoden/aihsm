@@ -25,10 +25,11 @@ def test_detects_pem_block():
     assert any(f.rule == "pem-private-key" for f in find_secrets("-----BEGIN RSA PRIVATE KEY-----"))
 
 
-def test_high_entropy_catchall():
-    # random-looking blob with no known prefix
+def test_high_entropy_blob_is_caught_when_it_has_credential_context():
+    # Replaces the old bare high-entropy catch-all, removed in 0.2.0. The same
+    # blob is caught when something names it as a credential.
     blob = "Zx9Qw3Vt7Lp2Rk8Nb4Hs6Md1Gf5Jc0Yy"
-    assert any(f.rule == "high-entropy" for f in find_secrets(blob))
+    assert any(f.rule == "credential" for f in find_secrets("API_TOKEN=" + blob))
 
 
 def test_plain_english_is_clean():
@@ -73,16 +74,9 @@ def test_benign_urls_and_paths_do_not_trigger():
 
 
 SECRETS = [
-    # Webhook-shaped URL where the URL itself is the credential. Uses a neutral
-    # host on purpose: a literal hooks.slack.com URL trips GitHub push
-    # protection even with invented values. The host is irrelevant to the rule,
-    # which fires on the dense trailing run.
-    ("webhook url, url is the secret", "https://hooks.example.com/services/T7K4blPqR/B9xJ2mNvW/kD8fH3jQ7pL5xZ2vB6nM4tYr"),
-    ("presigned s3 signature", "https://b.s3.amazonaws.com/k?X-Amz-Signature=a9f8e7d6c5b4a3928170f6e5d4c3b2a1908172635445362718293a4b5c6d7e8f"),
-    ("aws secret key with slashes", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
     ("api key in query param", "https://api.example.com/v1/t?api_key=9f8Kd2Lm4Xq7Rv1Zt6Yw3Bn5Hj8Pc0Ss"),
-    ("bare random token", "kD8fH3jQ7pL5xZ2vB6nM4tYrW9gC1sA0"),
-    ("bare 64-char hex secret", "a9f8e7d6c5b4a3928170f6e5d4c3b2a1908172635445362718293a4b5c6d7e8f"),
+    ("aws secret key with slashes", "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
+    ("presigned s3 signature", "https://b.s3.amazonaws.com/k?X-Amz-Signature=a9f8e7d6c5b4a3928170f6e5d4c3b2a1908172635445362718293a4b5c6d7e8f"),
 ]
 
 
@@ -91,8 +85,87 @@ def test_real_secrets_still_blocked():
         assert find_secrets(text) != [], "missed secret (%s): %s" % (label, text)
 
 
+# Documents what 0.2.0 knowingly gives up, so the trade stays visible instead of
+# being rediscovered as a surprise. A bare secret with no naming context and no
+# known provider prefix is indistinguishable from an opaque id or a hash, so it
+# passes. This was chosen over flooding every config and URL paste.
+KNOWN_MISSES = [
+    ("bare random token, no context", "kD8fH3jQ7pL5xZ2vB6nM4tYrW9gC1sA0"),
+    ("bare hex digest, no context", "a9f8e7d6c5b4a3928170f6e5d4c3b2a1908172635445362718293a4b5c6d7e8f"),
+    ("bare webhook url, no context", "https://hooks.example.com/services/T7K4blPqR/B9xJ2mNvW/kD8fH3jQ7pL5xZ2vB6nM4tYr"),
+]
+
+
+def test_known_misses_are_still_missed():
+    # If one of these starts passing, the trade-off changed. That is fine, but
+    # it must be a decision, not an accident.
+    for label, text in KNOWN_MISSES:
+        assert find_secrets(text) == [], "now caught (%s) - update the docs" % label
+
+
 def test_uuid_consistent_bare_and_in_url():
     # A UUID is an identifier. It must behave the same either way.
     bare = find_secrets("550e8400-e29b-41d4-a716-446655440000")
     in_url = find_secrets("https://x.example.com/a/550e8400-e29b-41d4-a716-446655440000")
     assert bare == [] and in_url == []
+
+
+# --- Regression: pasting a config/JSON export must not trip the detector ---
+# A real n8n workflow paste produced 13 false positives: camelCase JSON KEYS
+# ("googleSheetsOAuth2Api", "convertFieldsToString"), 16-char credential
+# reference ids, and 64-char hex version ids. Shannon entropy cannot tell any
+# of those from a real key: camelCase words score 3.5-3.9 and hex maxes at 4.0,
+# so they share a band. Detection is now context-gated instead.
+
+import os
+
+FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "n8n_workflow_shapes.json")
+
+
+def test_pasting_a_workflow_export_is_not_flagged():
+    text = open(FIXTURE, encoding="utf-8").read()
+    found = find_secrets(text)
+    assert found == [], "false positives on a config paste: %r" % [f.value for f in found]
+
+
+def test_camelcase_identifiers_are_not_secrets():
+    for ident in (
+        "googleSheetsOAuth2Api",
+        "convertFieldsToString",
+        "workflowsFromSameOwner",
+        "saveDataSuccessExecution",
+        "shareMediaCategory",
+        "canBeUsedToMatch",
+        "linkedInOAuth2Api",
+    ):
+        assert find_secrets(ident) == [], "camelCase identifier flagged: %s" % ident
+
+
+def test_opaque_ids_and_hashes_are_not_secrets():
+    for ident in (
+        "Fm9v3091Tzckxizi",                                                   # n8n credential ref
+        "17363b6a32cc40ea26ed3dd0f00854b82043edc0d4039cb353e240d941515610",   # version id / sha256
+        "a1b2c3d4-e5f6-4789-a012-3456789abcde",                              # uuid
+    ):
+        assert find_secrets(ident) == [], "opaque id flagged: %s" % ident
+
+
+def test_credentials_are_caught_by_context():
+    for text in (
+        "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        '"apiKey": "9f8Kd2Lm4Xq7Rv1Zt6Yw3Bn5Hj8Pc0Ss"',
+        "DATABASE_PASSWORD=hunter2CorrectHorseBattery",
+        'client_secret: "8xKq2Lm9Rv4Zt7Yw1Bn6Hj3Pc5Ss0Dd"',
+        "AUTH_TOKEN=abc123def456ghi789jkl",
+    ):
+        assert find_secrets(text) != [], "missed credential in context: %s" % text
+
+
+def test_named_provider_rules_still_catch_bare_pastes():
+    for text in (
+        "ghp_0000000000111111111122222222223333",
+        "sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAA",
+        "AKIAIOSFODNN7EXAMPLE",
+        "-----BEGIN RSA PRIVATE KEY-----",
+    ):
+        assert find_secrets(text) != [], "missed known provider secret: %s" % text

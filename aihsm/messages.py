@@ -9,8 +9,8 @@ def secret_detected_message(rule, suggested_name):
         "  1. Revoke or rotate it at the provider now.\n"
         "  2. Store the new one:  aihsm put {name}\n"
         "  3. Re-send your message, referring to it by name.\n\n"
-        "False alarm? Re-send your message starting with !secret-ok and this\n"
-        "exact string will stop being flagged."
+        "False alarm? Re-send your message starting with secret-ok (no\n"
+        "leading punctuation) and this exact string stops being flagged."
     ).format(rule=rule, name=suggested_name)
 
 
